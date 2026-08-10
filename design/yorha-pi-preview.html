@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>YoRHa Bunker HUD — Pi Preview</title>
+<style>
+:root{--void:#16161a;--deep:#131317;--surface:#3a3a40;--text:#d8d4c4;--bright:#efebdb;--steel:#6e7b8b;--amber:#bc9a5a;--red:#bb3b36;--olive:#a3a87e;--line:rgba(110,123,139,.36);--faint:rgba(216,212,196,.1)}
+*{box-sizing:border-box}html,body{height:100%;margin:0;background:#16161a;color:var(--text);font-family:"Cascadia Code NF","Cascadia Code",monospace;overflow:hidden}body{display:grid;place-items:center;padding:0}
+.shell{position:relative;width:100%;height:100%;min-width:860px;background:#16161a;border:0;overflow:hidden;isolation:isolate}
+.noise{display:none}
+.beam{position:absolute;z-index:12;left:0;right:0;height:14%;pointer-events:none;background:linear-gradient(transparent,rgba(110,123,139,.025),rgba(110,123,139,.09),rgba(58,58,64,.1),transparent);animation:sweep 7s linear infinite}@keyframes sweep{from{transform:translateY(-130%)}to{transform:translateY(820%)}}
+.corner{position:absolute;width:140px;height:140px;z-index:1;opacity:.28}.corner.tl{top:-1px;left:-1px;border-top:1px solid var(--steel);border-left:1px solid var(--steel);border-radius:100% 0 0 0}.corner.br{right:-1px;bottom:-1px;border-right:1px solid var(--steel);border-bottom:1px solid var(--steel);border-radius:0 0 100% 0}.diag{position:absolute;width:240px;height:1px;background:var(--line);transform:rotate(45deg);opacity:.35}.d1{top:34px;left:-70px}.d2{right:-70px;bottom:34px}
+.top{height:88px;padding:13px 20px 12px;border-bottom:1px solid var(--line);background:#16161a;position:relative;display:grid;grid-template-columns:1.15fr 1.8fr 1fr;gap:22px;align-items:center}.wordmark{color:var(--amber);font-size:18px;letter-spacing:.26em;font-weight:700}.micro{font-size:8px;letter-spacing:.28em;text-transform:uppercase;color:rgba(216,212,196,.53)}.unit{margin-top:5px;font-size:10px;letter-spacing:.16em}.telemetry{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.metric{border-left:1px solid var(--line);padding-left:10px}.metric b{display:block;color:var(--bright);font-size:12px;margin-top:4px;font-weight:500}.meter{height:2px;background:var(--faint);margin-top:7px}.meter i{display:block;height:100%;background:var(--steel)}.modeblock{text-align:right}.mode{display:inline-flex;gap:9px;align-items:center;border:1px solid var(--line);padding:7px 10px;color:var(--amber);font-size:10px;letter-spacing:.18em}.pulse{width:6px;height:6px;background:var(--amber);border-radius:50%;box-shadow:0 0 9px var(--amber);animation:pulse 1.6s ease-in-out infinite}@keyframes pulse{50%{opacity:.25;box-shadow:none}}
+.main{position:absolute;inset:88px 0 58px;padding:25px 36px 110px;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--surface) transparent}.label{font-size:8px;letter-spacing:.3em;text-transform:uppercase;color:var(--steel);margin-bottom:8px}.message{max-width:870px;margin-bottom:23px;line-height:1.65;font-size:12px}.user{border-left:2px solid var(--amber);padding:10px 14px;background:linear-gradient(90deg,rgba(188,154,90,.07),transparent)}.agent{padding-left:16px}.agent strong{color:var(--bright);font-weight:500}.proposal{margin-top:14px;color:var(--amber)}.codepanel{margin-top:16px;width:min(760px,100%);border:1px solid rgba(110,123,139,.48);background:#131317}.codehead{height:27px;padding:7px 11px;border-bottom:1px solid rgba(110,123,139,.26);display:flex;justify-content:space-between;color:var(--amber);font-size:8px;letter-spacing:.22em}.codehead span:last-child{color:var(--steel)}.codepanel pre{margin:0;padding:12px 14px;color:var(--bright);font:11px/1.7 "Cascadia Code NF","Cascadia Code",monospace;white-space:pre-wrap}.kw{color:var(--red)}.str{color:var(--amber)}.responselead{display:flex;align-items:center;gap:12px;margin:0 0 9px 16px;color:var(--amber);font-size:9px;letter-spacing:.2em}.response-icon{width:28px;height:28px;image-rendering:pixelated}.transmission{margin:0 0 10px 16px;color:var(--amber);font-size:9px;letter-spacing:.2em}.transmission-end{width:min(920px,calc(100% - 20px));margin:14px 0 9px;color:var(--steel);font-size:8px;letter-spacing:.18em;text-align:center}.transmission-meta{width:min(920px,calc(100% - 20px));margin:0 0 20px;color:rgba(216,212,196,.48);font-size:8px;letter-spacing:.12em}
+.tool{width:min(920px,calc(100% - 20px));margin:18px 0;border:1px solid rgba(110,123,139,.4);background:#131317;position:relative}.tool:before,.tool:after{content:"";position:absolute;width:9px;height:9px}.tool:before{top:-1px;left:-1px;border-top:1px solid var(--bright);border-left:1px solid var(--bright)}.tool:after{right:-1px;bottom:-1px;border-right:1px solid var(--bright);border-bottom:1px solid var(--bright)}.toolhead{padding:9px 12px;border-bottom:1px solid rgba(110,123,139,.23);display:flex;justify-content:space-between;font-size:9px;letter-spacing:.18em;color:var(--steel)}.toolhead b{color:var(--text);font-weight:500}.toolbody{padding:10px 12px;font-size:11px;color:rgba(216,212,196,.72)}.detail{display:none;margin-top:8px;padding-top:8px;border-top:1px dashed rgba(110,123,139,.27);line-height:1.55;color:var(--text)}.expanded .detail{display:block}.ok{color:var(--olive)}.hint{color:rgba(216,212,196,.38)}
+.pod{position:absolute;left:18px;right:18px;bottom:154px;width:auto;border:0;background:transparent;padding:0;z-index:8}.podhead{padding:0;font-size:8px;letter-spacing:.25em}.podmsg{font-size:10px;margin-top:7px;color:var(--bright);white-space:nowrap;overflow:hidden;animation:type 1.2s steps(54,end)}.execution{position:absolute;left:20px;bottom:128px;color:var(--amber);font-size:9px;letter-spacing:.12em;z-index:9}@keyframes type{from{max-width:0}to{max-width:100%}}
+.editor{position:absolute;left:18px;right:18px;bottom:68px;z-index:9;border:1px solid rgba(188,154,90,.48);background:rgba(19,19,23,.96);height:58px;padding:8px 13px 10px;box-shadow:0 0 22px rgba(188,154,90,.05)}.editor .edtop{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;font-size:7px;letter-spacing:.25em;color:rgba(216,212,196,.4)}.edlegend{display:flex;align-items:center;gap:9px}.edlegend:before,.edlegend:after{content:"";height:1px;background:rgba(110,123,139,.35);flex:1}.edstatus{color:var(--amber)}.prompt{margin-top:10px;font-size:12px;color:var(--bright)}.prompt b{color:var(--amber)}.cursor{display:inline-block;width:7px;height:13px;background:var(--amber);vertical-align:-2px;animation:blink 1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
+.footer{position:absolute;bottom:0;left:0;right:0;height:58px;border-top:1px solid var(--line);background:var(--deep);padding:11px 20px;display:flex;justify-content:space-between;align-items:center;font-size:9px;letter-spacing:.1em}.footleft,.footright,.runtime{display:flex;gap:17px;align-items:center}.runtime{padding-left:5px;border-left:1px solid var(--line)}.thinklevel{color:var(--amber)}.accent{color:var(--amber)}.danger{color:var(--red)}
+.panel{position:absolute;z-index:15;top:100px;right:14px;bottom:140px;width:350px;background:#16161a;border:1px solid rgba(110,123,139,.62);transform:translateX(calc(100% + 18px));transition:transform .32s cubic-bezier(.22,1,.36,1)}.panel.open{transform:none}.paneltitle{padding:14px 15px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}.paneltitle b{font-size:11px;letter-spacing:.2em;color:var(--amber)}.paneltitle span{font-size:8px;color:var(--steel)}.panelbody{padding:14px}.scanring{width:74px;height:74px;margin:5px auto 18px;border:1px solid var(--steel);border-radius:50%;position:relative;animation:spin 9s linear infinite}.scanring:before{content:"";position:absolute;inset:8px;border:1px dashed rgba(110,123,139,.6);border-radius:50%}.scanring:after{content:"";position:absolute;width:45px;height:1px;background:var(--amber);top:36px;left:36px;transform-origin:left;animation:spin 2.6s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.row{padding:10px 0;border-bottom:1px solid rgba(110,123,139,.18)}.row .micro{margin-bottom:5px}.row b{font-size:11px;color:var(--bright);font-weight:500}.phase{margin-top:18px}.steps{display:flex;gap:3px;margin-top:9px}.steps i{height:3px;flex:1;background:var(--surface)}.steps i.done{background:var(--amber)}.evidence{margin-top:18px;padding:10px;border-left:1px solid var(--steel);background:rgba(110,123,139,.05);font-size:9px;line-height:1.7}.flag{margin-top:18px;border:1px solid rgba(188,59,54,.4);padding:10px;display:flex;justify-content:space-between;font-size:9px}.inactive{display:none;position:absolute;z-index:30;top:104px;right:18px;background:var(--deep);border:1px solid var(--red);color:var(--red);padding:10px 13px;font-size:9px;letter-spacing:.15em;animation:toast 2s both}@keyframes toast{0%{opacity:0;transform:translateY(-8px)}15%,80%{opacity:1;transform:none}100%{opacity:0}}
+.controls{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99;display:flex;gap:7px}.controls button{font:9px "Cascadia Code",monospace;letter-spacing:.08em;color:var(--text);border:1px solid #464650;background:#17171b;padding:6px 9px;cursor:pointer}.controls button:hover{border-color:var(--amber);color:var(--amber)}.widthwarning{display:none;position:absolute;inset:0;z-index:50;background:rgba(19,19,23,.97);place-items:center;text-align:center;padding:40px;color:var(--red);font-size:12px;letter-spacing:.12em}
+@media(max-width:1099px){.widthwarning{display:grid}.panel{display:none}}@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="controls"><button id="modeBtn">⇧Tab · Toggle mode</button><button id="panelBtn">⌃⇧H · CTF panel</button><button id="toolBtn">⌃O · Tool detail</button></div>
+<section class="shell" id="shell">
+<div class="noise"></div><div class="beam"></div><div class="corner tl"></div><div class="corner br"></div><div class="diag d1"></div><div class="diag d2"></div>
+<header class="top">
+  <div><div class="wordmark">YoRHa</div><div class="micro">Bunker command network</div><div class="unit">TERMINAL 9S–110 / PI AGENT</div></div>
+  <div class="telemetry">
+    <div class="metric"><span class="micro">Context load</span><b>68.4%</b><div class="meter"><i style="width:68%"></i></div></div>
+    <div class="metric"><span class="micro">Model unit</span><b>OPUS 4.6</b><div class="meter"><i style="width:84%"></i></div></div>
+    <div class="metric"><span class="micro">Thinking</span><b>HIGH</b><div class="meter"><i style="width:74%"></i></div></div>
+  </div>
+  <div class="modeblock"><div class="micro" style="margin-bottom:6px">Operational configuration</div><div class="mode"><i class="pulse"></i><span id="modeText">BUILD MODE</span></div></div>
+</header>
+<main class="main">
+  <div class="label">Operator transmission / 00047</div>
+  <div class="message user">Implement the authentication boundary and verify the current test suite.</div>
+  <div class="responselead"><img class="response-icon" src="../assets/generated/robot-face-sharp.png" alt="Pixelarticons robot face"><span>⌁ TACTICAL ANALYSIS</span></div>
+  <div class="transmission">◈ POD 042 / RESPONSE ───────────────────────────────────</div>
+  <div class="message agent"><strong>Affirmative.</strong> Repository structure and active constraints have been indexed. Proceeding with an isolated implementation pass.<div class="proposal">Proposal: inspect the existing service contract before mutation.</div><div class="codepanel"><div class="codehead"><span>BASH</span><span>CODE BLOCK</span></div><pre><span class="kw">if</span> [[ -f <span class="str">"$SESSION_FILE"</span> ]]; then
+  printf <span class="str">'session verified\\n'</span>
+fi</pre></div></div>
+  <div class="transmission-end">────────────────── END TRANSMISSION ──────────────────</div>
+  <div class="transmission-meta">⌁ TOTAL TOKENS 8K&nbsp;&nbsp;·&nbsp;&nbsp;ELAPSED 12.4S</div>
+  <div class="tool" id="tool">
+    <div class="toolhead"><b>◈ READ</b><span class="ok">EXECUTION COMPLETE · 24 MS</span></div>
+    <div class="toolbody"><span class="hint">TARGET</span> src/services/auth.ts <span class="hint">·</span> 186 lines indexed <span class="hint">· CTRL+O FOR DETAIL</span>
+      <div class="detail">export class AuthService {<br>&nbsp;&nbsp;async validateSession(token: string): Promise&lt;Session&gt; { … }<br>}<br><br><span class="ok">No read errors. Syntax classification: TypeScript.</span></div>
+    </div>
+  </div>
+  <div class="tool">
+    <div class="toolhead"><b>⌁ BASH</b><span class="ok">4 TESTS PASSED · 1.82 S</span></div>
+    <div class="toolbody"><span class="hint">COMMAND</span> npm test -- --runInBand <span class="hint">· OUTPUT COLLAPSED</span></div>
+  </div>
+</main>
+<div class="pod"><div class="podhead">POD 042 — SUPPORT UNIT</div><div class="podmsg" id="podmsg">Analysis: build environment stable. No anomalies detected.</div></div>
+<div class="execution">◐ EXECUTING BASH · 57.1S</div>
+<div class="editor"><div class="edtop"><span class="edlegend">OPERATOR INPUT CHANNEL</span><span class="edstatus" id="editorMode">LOCAL · BUILD · INSERT</span></div><div class="prompt"><b>›</b> <span class="cursor"></span></div></div>
+<footer class="footer"><div class="footleft"><span class="accent">◆ LINKED</span><span>BRANCH main</span></div><div class="footright"><span id="ctfFoot">HACKING UNIT STANDBY</span><div class="runtime"><span>gpt-5.6</span><span class="thinklevel">HIGH</span><span>CTX 68%</span></div></div></footer>
+<aside class="panel" id="panel">
+  <div class="paneltitle"><b>HACKING UNIT</b><span>CTF OPERATION // 01</span></div>
+  <div class="panelbody">
+    <div class="scanring"></div>
+    <div class="row"><div class="micro">Challenge designation</div><b>BLACK BOX PROTOCOL</b></div>
+    <div class="row"><div class="micro">Classification</div><b>BINARY EXPLOITATION</b></div>
+    <div class="row"><div class="micro">Target</div><b>REMOTE · TCP/31337</b></div>
+    <div class="phase"><div class="micro">Operational phase</div><b>ANALYSIS</b><div class="steps"><i class="done"></i><i class="done"></i><i></i><i></i><i></i></div><div class="micro" style="margin-top:6px">TRIAGE · ANALYSIS · EXPLOIT · VERIFY · COMPLETE</div></div>
+    <div class="evidence"><span class="micro">Evidence register / 03</span><br>NX ENABLED<br>PIE DISABLED<br>STACK CANARY ABSENT</div>
+    <div class="flag"><span>FLAG STATUS</span><b class="danger">UNVERIFIED</b></div>
+  </div>
+</aside>
+<div class="inactive" id="inactive">HACKING MODE INACTIVE.</div>
+<div class="widthwarning"><div>DISPLAY WIDTH BELOW 110 COLUMNS.<br><br>RIGHT-SIDE CTF OVERLAY DISABLED.</div></div>
+</section>
+<script>
+const shell=document.querySelector('#shell'),panel=document.querySelector('#panel'),tool=document.querySelector('#tool'),modeText=document.querySelector('#modeText'),editorMode=document.querySelector('#editorMode'),ctfFoot=document.querySelector('#ctfFoot'),inactive=document.querySelector('#inactive'),podmsg=document.querySelector('#podmsg');let mode='build';
+function toggleMode(){mode=mode==='build'?'hacking':'build';const h=mode==='hacking';modeText.textContent=h?'HACKING MODE':'BUILD MODE';editorMode.textContent=h?'LINK · HACKING · INSERT':'LOCAL · BUILD · INSERT';ctfFoot.textContent=h?'HACKING UNIT ARMED':'HACKING UNIT STANDBY';ctfFoot.className=h?'accent':'';podmsg.textContent=h?'Proposal: validate exploit evidence before flag submission.':'Analysis: build environment stable. No anomalies detected.';if(!h)panel.classList.remove('open')}
+function togglePanel(){if(mode!=='hacking'){inactive.style.display='none';void inactive.offsetWidth;inactive.style.display='block';return}panel.classList.toggle('open')}
+function toggleTool(){tool.classList.toggle('expanded')}
+document.querySelector('#modeBtn').onclick=toggleMode;document.querySelector('#panelBtn').onclick=togglePanel;document.querySelector('#toolBtn').onclick=toggleTool;
+if(location.hash==='#hacking'){toggleMode();togglePanel()}
+addEventListener('keydown',e=>{if(e.shiftKey&&e.key==='Tab'){e.preventDefault();toggleMode()}if(e.ctrlKey&&e.shiftKey&&e.key.toLowerCase()==='h'){e.preventDefault();togglePanel()}if(e.ctrlKey&&!e.shiftKey&&e.key.toLowerCase()==='o'){e.preventDefault();toggleTool()}})
+</script>
+</body>
+</html>

@@ -1,0 +1,328 @@
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { readFileSync } from "node:fs";
+import { Text, Container } from "@earendil-works/pi-tui";
+import { StringEnum } from "@earendil-works/pi-ai";
+import { Type } from "typebox";
+import { BunkerEditor, BunkerHeader, CtfOverlay, createBunkerFooter, createExecutionWidget, createPodWidget, createResponseCard, type ActiveExecution } from "./components.ts";
+import { transformAssistantMarkdown } from "./response.ts";
+import { installCodePanelRenderer } from "./code-panel.ts";
+import { initialProviderState, providerStateAfterHttp, providerStateAfterMessage, type ProviderLinkState } from "./provider-state.ts";
+import { installTransmissionMetadataRenderer } from "./transmission-metadata.ts";
+import { calculateRequestTokens, type TransmissionTelemetry } from "./transmission-format.ts";
+import { CTF_PHASES, EMPTY_CTF_STATE, applyCtfUpdate, restoreCtfState, type CtfState } from "./ctf-state.ts";
+import { GLYPH, LABEL, UI, type OperationalMode } from "./tokens.ts";
+import { CTF_TOOL_NAME, activeToolsForMode } from "./mode.ts";
+
+const CTF_TOOL = CTF_TOOL_NAME;
+const STATE_ENTRY = "yorha-ctf-state";
+const TRANSMISSION_ENTRY = "yorha-transmission-telemetry";
+
+const schema = Type.Object({
+  challenge: Type.Optional(Type.String({ maxLength: 80, description: "Challenge designation" })),
+  category: Type.Optional(Type.String({ maxLength: 80, description: "CTF category" })),
+  target: Type.Optional(Type.String({ maxLength: 80, description: "Target service, file, or endpoint" })),
+  phase: Type.Optional(StringEnum(CTF_PHASES)),
+  evidence: Type.Optional(Type.Array(Type.String({ maxLength: 160 }), { maxItems: 12 })),
+  verified: Type.Optional(Type.Boolean({ description: "Whether the flag has been reproducibly verified; never provide the flag text" })),
+  overrideReason: Type.Optional(Type.String({ maxLength: 160, description: "Required for phase regressions or skipped phases" })),
+});
+
+export default function yorhaBunkerHud(pi: ExtensionAPI): void {
+  const responseIconBase64 = readFileSync(new URL("./assets/generated/robot-face-sharp.png", import.meta.url)).toString("base64");
+  const activeExecutions = new Map<string, ActiveExecution>();
+  let providerState: ProviderLinkState = "offline";
+  let providerResponseHealthy = false;
+  let providerRequestStartedAt: number | undefined;
+  const transmissionTelemetry = new Map<number, TransmissionTelemetry>();
+  let removeCodePanelPatch: (() => void) | undefined;
+  let removeTransmissionMetadataPatch: (() => void) | undefined;
+  let mode: OperationalMode = "build";
+  let state: CtfState = { ...EMPTY_CTF_STATE, evidence: [] };
+  let overlayDone: (() => void) | undefined;
+  let overlayComponent: CtfOverlay | undefined;
+  let overlayOpen = false;
+  let currentContext: ExtensionContext | undefined;
+
+  const refreshStatus = (ctx: ExtensionContext) => {
+    const theme = ctx.ui.theme;
+    const text = mode === "hacking"
+      ? theme.fg("accent", `${GLYPH.linked} HACKING · ${state.phase}`)
+      : theme.fg("dim", `${GLYPH.linked} BUILD`);
+    ctx.ui.setStatus("yorha-mode", text);
+    ctx.ui.setWidget("yorha-pod", (_tui, widgetTheme) => createPodWidget(widgetTheme, mode, state));
+  };
+
+  const refreshExecutionWidget = (ctx: ExtensionContext) => {
+    if (activeExecutions.size === 0) {
+      ctx.ui.setWidget("yorha-execution", undefined);
+      return;
+    }
+    const executions = [...activeExecutions.values()];
+    ctx.ui.setWidget("yorha-execution", (_tui, theme) => createExecutionWidget(theme, executions));
+  };
+
+  const setToolForMode = () => {
+    const active = pi.getActiveTools();
+    const next = activeToolsForMode(active, mode);
+    if (next.length !== active.length || next.some((name, index) => name !== active[index])) pi.setActiveTools(next);
+  };
+
+  const closeOverlay = () => {
+    overlayComponent?.dispose();
+    overlayComponent = undefined;
+    const done = overlayDone;
+    overlayDone = undefined;
+    overlayOpen = false;
+    done?.();
+  };
+
+  const openOverlay = (ctx: ExtensionContext) => {
+    if (overlayOpen || ctx.mode !== "tui") return;
+    overlayOpen = true;
+    let warned = false;
+    void ctx.ui.custom<void>(
+      (tui, theme, _keybindings, done) => {
+        overlayDone = () => done(undefined);
+        overlayComponent = new CtfOverlay(theme, () => state, () => tui.requestRender(), closeOverlay);
+        return overlayComponent;
+      },
+      {
+        overlay: true,
+        overlayOptions: {
+          width: UI.panelWidth,
+          minWidth: UI.panelWidth,
+          maxHeight: "65%",
+          anchor: "top-right",
+          margin: { top: 2, right: 1, bottom: UI.panelBottomMargin, left: 1 },
+          visible: (width, height) => {
+            const visible = width >= UI.minWidth && height >= UI.minPanelHeight;
+            if (!visible && !warned) {
+              warned = true;
+              queueMicrotask(() => ctx.ui.notify(`CTF panel requires at least ${UI.minWidth} columns and ${UI.minPanelHeight} rows.`, "warning"));
+            }
+            return visible;
+          },
+        },
+        onHandle: (handle) => handle.unfocus(),
+      },
+    ).finally(() => {
+      overlayComponent?.dispose();
+      overlayComponent = undefined;
+      overlayDone = undefined;
+      overlayOpen = false;
+    });
+  };
+
+  const togglePanel = (ctx: ExtensionContext) => {
+    if (mode !== "hacking") {
+      ctx.ui.notify(LABEL.inactive, "warning");
+      return;
+    }
+    if (overlayOpen) closeOverlay();
+    else openOverlay(ctx);
+  };
+
+  const applyMode = (next: OperationalMode, ctx: ExtensionContext, notify = true) => {
+    mode = next;
+    if (mode === "build") closeOverlay();
+    setToolForMode();
+    refreshStatus(ctx);
+    ctx.ui.setTitle(`YoRHa Bunker · ${mode.toUpperCase()}`);
+    if (notify) ctx.ui.notify(`${mode === "hacking" ? "Hacking" : "Build"} mode active.`, "info");
+  };
+
+  const toggleMode = (ctx: ExtensionContext) => applyMode(mode === "build" ? "hacking" : "build", ctx);
+
+  pi.registerTool({
+    name: CTF_TOOL,
+    label: "YoRHa CTF Status",
+    description: "Update the YoRHa Hacking HUD with reproducible CTF challenge state. Record category, target, ordered phase, concise evidence, and verification status. Never submit or store flag text in this tool.",
+    promptSnippet: "Update the CTF Hacking HUD with challenge phase and reproducible evidence",
+    promptGuidelines: [
+      "Use yorha_ctf_status in Hacking mode whenever CTF category, target, phase, evidence, or verified status changes.",
+      "Never pass a flag value to yorha_ctf_status; only mark verified after deriving and reproducing it.",
+    ],
+    parameters: schema,
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+      if (mode !== "hacking") throw new Error("YoRHa CTF status is available only in Hacking mode");
+      state = applyCtfUpdate(state, params);
+      pi.appendEntry(STATE_ENTRY, state);
+      refreshStatus(ctx);
+      return {
+        content: [{ type: "text", text: `HUD updated: ${state.challenge} · ${state.phase} · ${state.evidence.length} evidence record(s) · ${state.verified ? "VERIFIED" : "UNVERIFIED"}` }],
+        details: { state },
+      };
+    },
+    renderCall(args, theme) {
+      const phase = args.phase ? ` · ${args.phase}` : "";
+      return new Text(theme.fg("toolTitle", `${GLYPH.tool} CTF STATUS${phase}`), 0, 0);
+    },
+    renderResult(result, options, theme) {
+      const saved = result.details?.state as CtfState | undefined;
+      if (!saved) return new Text(theme.fg("error", "CTF status update failed"), 0, 0);
+      let text = theme.fg("success", `${GLYPH.linked} ${saved.phase} · ${saved.verified ? "VERIFIED" : "UNVERIFIED"}`);
+      if (options.expanded) {
+        text += `\n${theme.fg("dim", `${saved.challenge} · ${saved.category} · ${saved.target}`)}`;
+        for (const item of saved.evidence.slice(-5)) text += `\n${theme.fg("muted", `${GLYPH.pointer} ${item.text}`)}`;
+      }
+      return new Text(text, 0, 0);
+    },
+  });
+
+  pi.registerEntryRenderer(STATE_ENTRY, () => new Container());
+  pi.registerEntryRenderer(TRANSMISSION_ENTRY, () => new Container());
+  pi.registerEntryRenderer("yorha-response-card", (_entry, _options, theme) => createResponseCard(theme, responseIconBase64));
+  pi.registerMarkdownTransformer((markdown, context) =>
+    transformAssistantMarkdown(markdown, context.messageType, context.isStreaming)
+  );
+
+  pi.registerShortcut("shift+tab", {
+    description: "Toggle YoRHa Build/Hacking mode",
+    handler: async (ctx) => toggleMode(ctx),
+  });
+
+  pi.registerShortcut("ctrl+shift+h", {
+    description: "Toggle YoRHa CTF side panel",
+    handler: async (ctx) => togglePanel(ctx),
+  });
+
+  pi.registerCommand("yorha-mode", {
+    description: "Set or show YoRHa mode: build or hacking",
+    handler: async (args, ctx) => {
+      const requested = args.trim().toLowerCase();
+      if (!requested) {
+        ctx.ui.notify(`YoRHa mode: ${mode}`, "info");
+        return;
+      }
+      if (requested !== "build" && requested !== "hacking") {
+        ctx.ui.notify("Usage: /yorha-mode [build|hacking]", "error");
+        return;
+      }
+      applyMode(requested, ctx);
+    },
+  });
+
+  pi.registerCommand("yorha-panel", {
+    description: "Toggle the YoRHa Hacking Unit panel",
+    handler: async (_args, ctx) => togglePanel(ctx),
+  });
+
+  pi.on("session_start", (_event, ctx) => {
+    currentContext = ctx;
+    const branch = ctx.sessionManager.getBranch();
+    state = restoreCtfState(branch);
+    transmissionTelemetry.clear();
+    providerRequestStartedAt = undefined;
+    const savedElapsed = new Map<number, number | undefined>();
+    for (const entry of branch) {
+      if (entry.type !== "custom" || entry.customType !== TRANSMISSION_ENTRY || !entry.data || typeof entry.data !== "object") continue;
+      const data = entry.data as { messageTimestamp?: unknown; elapsedMs?: unknown };
+      if (typeof data.messageTimestamp === "number" && (data.elapsedMs === undefined || typeof data.elapsedMs === "number")) {
+        savedElapsed.set(data.messageTimestamp, data.elapsedMs);
+      }
+    }
+    for (const entry of branch) {
+      if (entry.type !== "message" || entry.message.role !== "assistant") continue;
+      transmissionTelemetry.set(entry.message.timestamp, {
+        messageTimestamp: entry.message.timestamp,
+        requestTokens: calculateRequestTokens(entry.message.usage),
+        elapsedMs: savedElapsed.get(entry.message.timestamp),
+      });
+    }
+    const hasAuth = ctx.model ? ctx.modelRegistry.getProviderAuthStatus(ctx.model.provider).configured : false;
+    providerState = initialProviderState(Boolean(ctx.model), hasAuth);
+    providerResponseHealthy = false;
+    activeExecutions.clear();
+    ctx.ui.setWidget("yorha-execution", undefined);
+    mode = "build";
+    closeOverlay();
+    setToolForMode();
+
+    if (ctx.mode === "tui") {
+      const selected = ctx.ui.setTheme("yorha-bunker");
+      if (!selected.success) ctx.ui.notify(`YoRHa theme unavailable: ${selected.error}`, "warning");
+      ctx.ui.setHeader((_tui, theme) => new BunkerHeader(theme, ctx, () => mode));
+      removeCodePanelPatch?.();
+      removeCodePanelPatch = installCodePanelRenderer();
+      removeTransmissionMetadataPatch?.();
+      removeTransmissionMetadataPatch = installTransmissionMetadataRenderer(
+        () => ctx.ui.theme,
+        (message) => transmissionTelemetry.get(message.timestamp),
+      );
+      ctx.ui.setFooter((tui, theme, footerData) => createBunkerFooter(theme, ctx, footerData, () => mode, () => state, () => providerState, () => tui.requestRender()));
+      ctx.ui.setEditorComponent((tui, theme, keybindings) => new BunkerEditor(tui, theme, keybindings, () => mode, ctx.ui.theme));
+      ctx.ui.setWorkingMessage("Pod 042 processing tactical data...");
+      ctx.ui.setWorkingIndicator({
+        frames: GLYPH.scan.map((frame, index) => ctx.ui.theme.fg(index % 2 ? "border" : "accent", frame)),
+        intervalMs: UI.workingIntervalMs,
+      });
+      ctx.ui.setToolsExpanded(false);
+    }
+    refreshStatus(ctx);
+    ctx.ui.setTitle("YoRHa Bunker · BUILD");
+  });
+
+  pi.on("turn_start", (event) => {
+    pi.appendEntry("yorha-response-card", { turn: event.turnIndex, at: event.timestamp });
+  });
+  pi.on("tool_execution_start", (event, ctx) => {
+    activeExecutions.set(event.toolCallId, { name: event.toolName, startedAt: Date.now() });
+    refreshExecutionWidget(ctx);
+  });
+  pi.on("tool_execution_end", (event, ctx) => {
+    activeExecutions.delete(event.toolCallId);
+    refreshExecutionWidget(ctx);
+  });
+  pi.on("before_provider_request", (_event, ctx) => {
+    providerRequestStartedAt = performance.now();
+    providerState = "active";
+    providerResponseHealthy = false;
+    refreshStatus(ctx);
+  });
+  pi.on("after_provider_response", (event, ctx) => {
+    const next = providerStateAfterHttp(event.status);
+    providerState = next.state;
+    providerResponseHealthy = next.responseHealthy;
+    refreshStatus(ctx);
+  });
+  pi.on("message_end", (event, ctx) => {
+    if (event.message.role !== "assistant") return;
+    const elapsedMs = providerRequestStartedAt === undefined
+      ? Math.max(0, Date.now() - event.message.timestamp)
+      : Math.max(0, performance.now() - providerRequestStartedAt);
+    providerRequestStartedAt = undefined;
+    const telemetry: TransmissionTelemetry = {
+      messageTimestamp: event.message.timestamp,
+      requestTokens: calculateRequestTokens(event.message.usage),
+      elapsedMs,
+    };
+    transmissionTelemetry.set(event.message.timestamp, telemetry);
+    pi.appendEntry(TRANSMISSION_ENTRY, telemetry);
+    providerState = providerStateAfterMessage(providerState, providerResponseHealthy, event.message.stopReason);
+    refreshStatus(ctx);
+  });
+  pi.on("agent_end", (_event, ctx) => {
+    if (providerState === "active" && providerResponseHealthy) providerState = "linked";
+    refreshStatus(ctx);
+  });
+  pi.on("model_select", (event, ctx) => {
+    const hasAuth = ctx.modelRegistry.getProviderAuthStatus(event.model.provider).configured;
+    providerState = initialProviderState(true, hasAuth);
+    providerResponseHealthy = false;
+    refreshStatus(ctx);
+  });
+  pi.on("thinking_level_select", (_event, ctx) => refreshStatus(ctx));
+  pi.on("session_shutdown", () => {
+    closeOverlay();
+    activeExecutions.clear();
+    removeCodePanelPatch?.();
+    removeCodePanelPatch = undefined;
+    removeTransmissionMetadataPatch?.();
+    removeTransmissionMetadataPatch = undefined;
+    if (currentContext) {
+      currentContext.ui.setWorkingIndicator();
+      currentContext.ui.setWorkingMessage();
+    }
+    currentContext = undefined;
+  });
+}

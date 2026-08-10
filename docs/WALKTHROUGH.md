@@ -1,0 +1,131 @@
+# WALKTHROUGH
+
+## Project Context
+- Workspace: `/Users/aliceevr/Documents/Workspace/Conjuration/yorha-bunker`
+- Current objective: design a custom Pi TUI inspired by the user's existing YoRHa desktop system.
+- Reference system: `/Users/aliceevr/Documents/Workspace/Conjuration/yorha-system`
+- Runtime: Pi terminal UI, with themes under `~/.pi/agent/themes/` or `.pi/themes/` and TypeScript extensions under `~/.pi/agent/extensions/` or `.pi/extensions/`.
+
+## Agent Roster
+- Pi coding agent: design discovery, planning, implementation, and verification.
+- User: visual/product decisions and approval.
+
+## Current Roadmap
+- `docs/PLAN.md`
+- Preview and roadmap approved; implementation is active.
+
+## Execution State
+- Stage: discovery and requirements clarification.
+- Completed: inspected Pi theme/TUI/extension documentation and the reference YoRHa palette, editor theme, Ghostty theme, README, and decision log.
+- Completed decisions: Bunker HUD, permanently dark, customize all supported UI surfaces, live telemetry, explicit YoRHa terminology, optional CTF/Hacking mode, animated treatment, compact tools with detail toggle, 110-column minimum, Nerd Font glyphs, global installation, HTML preview.
+- Completed: all interaction and CTF-state decisions resolved; interactive HTML preview and Build/Hacking reference renders created.
+- Completed: user approved the revised preview and requested implementation to proceed.
+- Completed: implementation roadmap written with dependency-ordered stages and test procedures.
+- Roadmap approval received.
+- Stages 1–5 complete.
+- Current Stage/Module/Task: final handoff.
+- Completed task IDs: P1.1.1–P1.2.2, P2.1.1–P2.2.4, P3.1.1–P3.2.3, P4.1.1–P4.2.3, P5.1.1–P5.2.3.
+- Blocked task IDs: none.
+- Post-plan behavior update complete: quiet startup enabled and current skill conflicts repaired.
+- Footer copy update complete and globally deployed.
+- Raster icon and response/execution separation update complete and globally deployed.
+- Pod/editor alignment correction complete and globally deployed.
+- Fullscreen/provider-footer/code-panel revision approved, implemented, and globally deployed.
+- Next allowed task: user runs `/reload`; global fullscreen takes effect on the next Pi process because terminal mode is selected at startup.
+
+## Handoff Notes
+- Preserve original generated design language; do not redistribute game assets.
+- Reference dark palette: field `#16161A`, text `#D8D4C4`, bright value `#EFEBDB`, surface `#3A3A40`, ornament `#6E7B8B`, accent `#BC9A5A`, alert `#BB3B36`.
+- Reference light palette: field `#CAC5B0`, text `#4A4741`, raised surface `#D6D2C1`, accent `#BC9A5A`, alert `#BB3B36`.
+- User explicitly requires preview and approval before implementation.
+- `Shift+Tab` currently runs `app.thinking.cycle`; it must be rebound if used for Build/Hacking mode.
+- `Ctrl+O` already runs `app.tools.expand`, matching the requested compact/detail behavior.
+- HTML is the selected preview format because it provides high fidelity with lower generation/review cost than a rendered image workflow.
+- Final interaction decisions: `Shift+Tab` toggles Build/Hacking; thinking cycle moves to `Ctrl+Shift+T`; `Ctrl+Shift+H` toggles a 34-column CTF overlay only in Hacking mode; Build mode reports `Hacking mode inactive`; overlay auto-hides below 110 columns; `Ctrl+O` retains Pi's built-in tool detail toggle.
+- Existing global Pi state: `settings.json` uses theme `dark`, provider `openai-codex`, model `gpt-5.6-sol`, thinking `medium`, terminal progress enabled, hardware cursor disabled; no `keybindings.json` exists.
+- Existing global extension `~/.pi/agent/extensions/clawd-on-desk/` has no detected Pi UI registration conflicts and must remain untouched.
+- Global installation completed: `~/.pi/agent/extensions/yorha-bunker-hud/`, `~/.pi/agent/themes/yorha-bunker.json`, theme setting, and thinking keybinding.
+- Original extension/theme restore bundle: `~/.pi/agent/backups/yorha-bunker-20260807T235306Z-64447/restore.sh`.
+- Original startup/skill restore bundle: `~/.pi/agent/backups/yorha-startup-20260808T111909Z-46744/restore.sh`.
+- `quietStartup: true` now suppresses built-in startup help and loaded context/skill/extension/theme inventories at boot and `/reload`; the custom YoRHa header remains.
+- Duplicate academic skills were consolidated into complete canonical copies under `~/.agents/skills/`; malformed descriptions were JSON/YAML quoted and the strategist description reduced below the 1024-character standard limit.
+- Existing `clawd-on-desk` hash remained `dc20e21556ae09fccadd5888b24e11ba9a977c40bd3aeb4d29516d961c423dd6` before/after deployment.
+- Implementation source: repository root (`index.ts`, components, assets, theme, and tests).
+- Design artifacts: `design/yorha-pi-preview.html`, `design/rendered/yorha-pi-build.png`, and `design/rendered/yorha-pi-hacking.png`.
+
+## Verification Log
+- Read complete Pi docs: `docs/themes.md`, `docs/tui.md`, and `docs/extensions.md`.
+- Inspected reference files listed above.
+- HTML validation: Python `html.parser` completed successfully; required states and responsive guard found.
+- Browser rendering: Chrome headless produced valid 1500×940 PNGs for Build and Hacking states.
+- Visual inspection: Build state retains full Bunker HUD without CTF panel; Hacking state shows the right-side overlay, CTF telemetry, Pod status, and verified shortcut labels.
+- Revision: preview canvas now uses Ghostty's exact `#16161A` background with added noise/scanline background treatments removed. Hacking panel shadow removed and its lower boundary raised above the Operator Input Channel.
+- Re-rendered and visually inspected both 1500×940 reference PNGs. Automated checks confirm the Ghostty background, updated panel geometry, and absence of the old panel shadow.
+- Roadmap maintained at `docs/PLAN.md`; dependency chains and stage-specific verification procedures are recorded.
+- Theme contract: 53 color tokens validated; JSON parse passed.
+- State/mode/config tests: 10/10 Node tests passed.
+- Installer contract: temporary-HOME install, idempotence, unrelated configuration preservation, and restore passed.
+- Extension load smoke: `pi -e ... --list-models` exited 0 with no stderr.
+- TUI smoke: temporary global install rendered Build and Hacking at 120 columns, opened the panel, rejected it responsively at 109 columns, and reported no extension errors or shortcut conflicts.
+- Real global deployment completed; settings preserve provider/model/terminal/cursor fields and select `yorha-bunker`; keybindings contain `app.thinking.cycle: ctrl+shift+t`.
+- Real install idempotence passed with identical payload/config hashes after a second run.
+- Global extension catalogue load exited 0 with no stderr.
+- Ghostty-compatible global TUI smoke rendered Build/Hacking UI and panel with no extension error, theme error, or shortcut conflict.
+- Final full verification: theme contract passed; 10/10 Node tests passed; installer contract passed; 120/109-column TUI smoke passed; global configuration contract passed.
+- Quiet-startup repair contract passed in a temporary HOME, including reversible merge and restore.
+- Real quiet boot check: YoRHa header present; Context, Skills, Extensions, Themes, Skill conflicts, Theme conflicts, and Extension issues sections absent.
+- Real `/reload` check: reload completed while all resource listings/conflict sections remained absent.
+- Real `pi --verbose` check: Skills, Extensions, and Themes inventories remain available on demand; no skill conflicts remain.
+- Footer terminology updated: Build shows `HACKING UNIT STANDBY`; Hacking shows `HACKING UNIT ARMED · <phase>`; no footer text mentions CTF.
+- Branch fallback updated: absent Git branch renders exactly `NO BRANCH`, while a present branch renders `BRANCH <name>`.
+- Footer tests: full Node/theme suite passed, 120/109-column TUI smoke passed, source/global component comparison passed, and real global footer smoke passed.
+- Pixelarticons MIT assets added: original SVGs and license remain in source; four 48×48 transparent PNGs generated for terminal image rendering; runtime install includes PNGs and license.
+- Inline glyph language updated to geometric `◆`, `❯`, `◇`, `▸`, `◈`, `⌁`, with quadrant scanner animation and diamond phase states.
+- Assistant display-only Markdown now labels response and thinking blocks and adds `END TRANSMISSION` only after finalized responses; model/session context remains unchanged.
+- Tool call boxes now use recessed `#131317` surfaces. Active tools display a raster terminal icon plus `SYSTEM EXECUTION / <TOOL>` while preserving built-in execution/rendering and `Ctrl+O`.
+- Runtime image protocol verification: Pixelarticons response card emitted Kitty graphics escape data successfully.
+- Live isolated model-turn E2E: raster image, `POD 042 / RESPONSE`, model output, and `END TRANSMISSION` all rendered successfully.
+- Live isolated tool E2E: raster execution icon, `SYSTEM EXECUTION / BASH`, bash output, response label, and end divider all rendered with no extension errors.
+- Final verification after global deployment: 14/14 Node tests, theme contract, installer/restore, startup repair, 120/109-column TUI smoke, and global extension load all passed.
+- Latest pre-raster-update restore bundle: `~/.pi/agent/backups/yorha-bunker-20260808T174314Z-59037/restore.sh`.
+- Pod widget replaced its fixed 62-column string rendering with a dynamic zero-padding component using the exact editor width.
+- Alignment assertions now verify both modes: `POD 042 — SUPPORT UNIT` and analysis/proposal start at the Operator Input Channel's left edge; `LOCAL`/`◇ LINK` end at the same right edge as `BUILD · INSERT`/`HACKING · INSERT`.
+- Source tests passed: 14/14 Node tests, theme contract, installer contract, and 120/109-column TUI smoke including Build/Hacking alignment checks.
+- Real global 120-column smoke measured all left anchors at column 0 and both Build right anchors at column 120.
+- Latest pre-alignment restore bundle: `~/.pi/agent/backups/yorha-bunker-20260808T191646Z-2975/restore.sh`.
+- Approved design decisions pending implementation: real provider lifecycle states (`STANDBY`, `ACTIVE`, `LINKED`, `DEGRADED`, `OFFLINE`), LINKED persistence until failure, right-side `$model $level $context`, amber level-only thinking indicator, shortened model under width pressure, TEXT fallback language, no Bash prompt mutation, and global alternate-screen fullscreen.
+- Updated preview renders code without literal fences in a recessed language-labeled panel and uses the entire terminal viewport; artifacts refreshed at `design/rendered/yorha-pi-{build,hacking}.png`.
+- Provider lifecycle state is now real telemetry: model/auth availability initializes STANDBY/OFFLINE; provider requests set ACTIVE; successful finalized responses persist LINKED; HTTP/model errors set DEGRADED; operator aborts do not falsely degrade a prior link.
+- Footer runtime group now renders `$model $level $context`; the level is amber and contains only OFF/MINIMAL/LOW/MEDIUM/HIGH/XHIGH/MAX. Model IDs shorten responsively while retaining prefix/suffix.
+- Extension-level Markdown renderer patch replaces literal fenced delimiters with width-safe recessed `#131317` panels, language headers, syntax highlighting, wrapped long lines, and TEXT fallback. Patch is restored on session shutdown/reload and does not modify stored/model Markdown.
+- Global settings now include `tuiMode: "fullscreen"`; Pi enters the terminal alternate screen by default and `pi --tui-mode regular` remains an override.
+- Automated verification: 22/22 Node tests, theme contract, install/restore contract, startup repair contract, and 120/109-column TUI smoke passed.
+- Runtime verification: isolated code-panel TUI showed BASH header, exact code, no literal fences, deep background, and no extension error; live provider E2E observed STANDBY → ACTIVE → LINKED and footer order `gpt-5.6-sol MEDIUM CTX`.
+- Global verification: default startup emitted alternate-screen control, real STANDBY, quiet startup, and ordered footer; installed code panel emitted BASH borders/deep background without fences or errors.
+- Latest pre-fullscreen/code/footer restore bundle: `~/.pi/agent/backups/yorha-bunker-20260808T222154Z-86804/restore.sh`.
+- Per-transmission telemetry is now globally deployed beneath every finalized assistant response: actual assistant-message input, output, combined cache read/write, total tokens, and the response's local timestamp. Historical transmissions retain their own values; streaming responses do not show premature/flickering final totals.
+- Telemetry responsively changes from named wide fields to compact `I/O/C/Σ` fields while preserving all four usage dimensions and time. It is presentation-only and does not mutate persisted assistant content or future model context.
+- Verification: 26/26 Node tests, theme, installer/restore, startup repair, 120/109-column TUI smoke, source-provider E2E, and globally installed provider E2E passed. Captured global evidence included `TOKENS IN 7.7K OUT 6 CACHE 0 TOTAL 7.7K · 2026-08-10 13:19:57`, a real `◆ LINKED` transition, and no extension/runtime error.
+- Preview HTML and both rendered PNGs now include the transmission usage/timestamp line.
+- Latest pre-transmission-telemetry restore bundle: `~/.pi/agent/backups/yorha-bunker-20260810T061938Z-21215/restore.sh`.
+- Transmission telemetry was simplified per user direction: the line now shows only cumulative session token usage and elapsed provider-response time; per-response IN/OUT/CACHE fields and wall-clock timestamp were removed.
+- Elapsed timing starts at `before_provider_request` and ends at the finalized assistant `message_end`. Cumulative tokens add each finalized assistant message's provider-reported `totalTokens` along the active session branch.
+- Telemetry records persist as hidden custom session entries, remain outside model context, and allow historical elapsed values to survive reload. Older messages without timing records show an em dash rather than a fabricated duration.
+- Two-response provider E2E evidence: first transmission `TOTAL TOKENS 7.7K · ELAPSED 4.2S`; second transmission `TOTAL TOKENS 15K · ELAPSED 3.3S`, proving token accumulation and independent response timing. No old OUT fields or extension errors appeared.
+- Final verification: 27/27 Node tests, theme, installer/restore, startup repair, 120/109-column TUI smoke, extension load, and two-response provider E2E passed. Preview HTML and PNGs were refreshed.
+- Latest pre-cumulative-token/elapsed-time restore bundle: `~/.pi/agent/backups/yorha-bunker-20260810T065622Z-79688/restore.sh`.
+- User clarified that token accumulation is transmission-local, not chat/session cumulative. The implementation now resets for every provider request and displays exactly the finalized assistant message's `usage.input + usage.output`; previous responses are never added.
+- Elapsed time remains request-local from `before_provider_request` through assistant `message_end`. Persisted hidden telemetry was migrated safely: old cumulative counts are ignored, while valid historical elapsed durations can still be reused alongside token totals recalculated from each message's own usage.
+- Two-response provider E2E evidence: first request displayed `TOTAL TOKENS 7.7K · ELAPSED 4.0S`; second displayed `TOTAL TOKENS 1.1K · ELAPSED 6.0S`, proving the token value reset rather than increasing to a chat-wide sum. No extension errors occurred.
+- Final verification: 28/28 Node tests, theme, installer/restore, startup repair, 120/109-column TUI smoke, extension load, two-response provider E2E, and refreshed preview renders passed.
+- Latest pre-request-local-token restore bundle: `~/.pi/agent/backups/yorha-bunker-20260810T070629Z-6497/restore.sh`.
+- Bottom-dock and response-card spacing revision deployed from the user's 14:05 and 14:13 screenshots. The bot raster now has a two-cell left inset and `⌁ TACTICAL ANALYSIS` renders on the icon's right; the old separate thinking heading was removed.
+- Active execution UI is now a single live line (`◐ EXECUTING BASH · 3.0S`) with no duplicate terminal raster, `SYSTEM EXECUTION` title, or verbose-detail hint. Built-in tool output and Ctrl+O behavior remain unchanged.
+- `LOCAL`/`LINK` was removed from `POD 042 — SUPPORT UNIT` and moved into the editor state as `LOCAL · BUILD · INSERT` or `LINK · HACKING · INSERT`.
+- `OPERATOR INPUT CHANNEL` now sits centered inside a horizontal divider across the remaining editor-header width, matching the supplied title-and-rule reference.
+- Verification: 28/28 Node tests, theme, installer/restore, startup repair, 120/109-column responsive TUI smoke, extension load, refreshed Build/Hacking previews, and live Bash-provider E2E passed. Live evidence observed the compact execution timer reach 3.0S, Kitty raster data, inline tactical label, centered editor legend, moved locality, exact DONE response, and no extension error.
+- Latest pre-layout-polish restore bundle: `~/.pi/agent/backups/yorha-bunker-20260810T073847Z-89570/restore.sh`.
+- Source migration completed: the extension, tests, assets, theme, installer, design preview/renders, plan, and walkthrough now live under `/Users/aliceevr/Documents/Workspace/Conjuration/yorha-bunker`; the old `ctf-agent` copies were removed.
+- Post-migration verification from the new repository root passed: 28/28 Node tests, theme contract, installer/restore, startup repair, 120/109-column TUI smoke, extension loading, installer dry-run, and HTML preview raster rendering.
+- The globally installed extension remains active and unchanged; future deployments should run `bash install.sh` from the new repository.
+- Remaining operational action: `/reload` only when deploying a later source revision.
