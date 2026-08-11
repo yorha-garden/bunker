@@ -4,6 +4,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 export HOME="$TMP/home"
+export YORHA_SKIP_PACKAGES=1
 mkdir -p "$HOME/.pi/agent/extensions/clawd-on-desk"
 printf '{"theme":"dark","defaultProvider":"test","defaultModel":"model","terminal":{"showTerminalProgress":true}}\n' > "$HOME/.pi/agent/settings.json"
 printf '{"tui.editor.yank":"ctrl+y"}\n' > "$HOME/.pi/agent/keybindings.json"
@@ -16,6 +17,10 @@ RESTORE=$(printf '%s\n' "$OUT1" | awk '/^Restore:/ {print $2}')
 [[ $(jq -r .theme "$HOME/.pi/agent/settings.json") == yorha-bunker ]]
 [[ $(jq -r .quietStartup "$HOME/.pi/agent/settings.json") == true ]]
 [[ $(jq -r .tuiMode "$HOME/.pi/agent/settings.json") == fullscreen ]]
+[[ $(jq -r '.packages[] | select(type == "string" and startswith("npm:pi-subagents"))' "$HOME/.pi/agent/settings.json") == npm:pi-subagents@0.46.0 ]]
+[[ $(jq -r '.packages[] | select(type == "object" and (.source | contains("github.com/obra/superpowers"))) | .extensions | length' "$HOME/.pi/agent/settings.json") == 0 ]]
+[[ -f "$HOME/.pi/agent/extensions/yorha-bunker-hud/build-orchestration.ts" ]]
+[[ -f "$HOME/.pi/agent/extensions/yorha-bunker-hud/skills/yorha-build-orchestration/SKILL.md" ]]
 [[ $(jq -r '."app.thinking.cycle"' "$HOME/.pi/agent/keybindings.json") == ctrl+shift+t ]]
 [[ $(jq -r '."tui.editor.yank"' "$HOME/.pi/agent/keybindings.json") == ctrl+y ]]
 [[ $BASE == $(shasum -a 256 "$HOME/.pi/agent/extensions/clawd-on-desk/index.ts" | awk '{print $1}') ]]

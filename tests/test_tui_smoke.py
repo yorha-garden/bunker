@@ -99,11 +99,13 @@ assert "conflicts with built-in shortcut" not in wide
 assert "TypeError" not in wide and "Extension error" not in wide
 
 build = run_tui(120, toggle_hacking=False)
+Path("/tmp/yorha-tui-build.txt").write_text(build)
+assert "BUILD UNIT READY" in build, build[-3000:]
 build_lines = build.splitlines()
 build_pod = next(line for line in reversed(build_lines) if line.startswith("POD 042"))
-build_analysis = next(line for line in reversed(build_lines) if line.startswith("Analysis: build environment"))
+build_analysis = next(line for line in reversed(build_lines) if line.startswith("Analysis: Build Unit ready"))
 build_editor = next(line for line in reversed(build_lines) if "OPERATOR INPUT CHANNEL" in line and "LOCAL · BUILD · INSERT" in line)
-assert build_pod.index("POD 042") == build_analysis.index("Analysis: build environment") == 0
+assert build_pod.index("POD 042") == build_analysis.index("Analysis: Build Unit ready") == 0
 assert "LOCAL" not in build_pod and "LINK" not in build_pod
 assert build_editor.rstrip().endswith("LOCAL · BUILD · INSERT")
 

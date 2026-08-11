@@ -12,8 +12,22 @@ Global Pi TUI theme and extension matching the approved Ghostty/YoRHa environmen
 | `Ctrl+O` | Toggle compact/detailed tool output (Pi native) |
 | `/yorha-mode build|hacking` | Explicitly set mode |
 | `/yorha-panel` | Toggle the Hacking Unit overlay |
+| `/yorha-agents` | Show the active Build Unit subagent fleet |
 
 Build is always the startup mode. CTF metadata persists in session entries but is hidden until Hacking mode is active. The agent-managed `yorha_ctf_status` tool is active only in Hacking mode and stores verification status, never flag text.
+
+## Build orchestration
+
+Build mode combines pinned [Superpowers v6.2.0](https://github.com/obra/superpowers) skills with [pi-subagents v0.46.0](https://github.com/nicobailon/pi-subagents):
+
+- YoRHa injects a Build-only bootstrap that requires skill discovery before action.
+- The `yorha-build-orchestration` skill coordinates brainstorming, planning, TDD, implementation, specification/code review, and fresh verification.
+- `subagent` and `subagent_wait` are enabled in Build mode and removed in Hacking mode.
+- The status line and footer show the bounded active fleet reported by pi-subagents' public RPC rather than scraping tool output.
+- Read-only scouts/reviewers may run concurrently. Writers must have disjoint scopes and separate worktrees; the parent reviews and integrates their changes.
+- Superpowers' upstream always-on extension is intentionally filtered out. Its skills remain available, while YoRHa owns mode-aware activation.
+
+The default package agents include `scout`, `researcher`, `worker`, `reviewer`, and `oracle`. Delegated processes share filesystem and environment access. Agent tool allowlists are capability controls, **not OS sandboxes**; review third-party package updates and never delegate secrets.
 
 Model responses and verbose execution are visually isolated:
 
@@ -39,7 +53,7 @@ The panel requires at least 110 columns and 28 rows. It hides responsively below
 bash install.sh
 ```
 
-The installer creates a timestamped restore bundle under `~/.pi/agent/backups/` before changing anything. It preserves unrelated settings, keybindings, themes, and extensions.
+The installer creates a timestamped restore bundle under `~/.pi/agent/backups/` before changing anything. It preserves unrelated settings, keybindings, themes, extensions, and package entries. It installs exact pinned package versions; inspect their source before installation because Pi extensions execute with full user permissions. Set `YORHA_SKIP_PACKAGES=1` only for offline staging or installer tests—the package entries are still configured and Pi may reconcile them later.
 
 Original pre-install restore bundle created for this deployment:
 
@@ -70,6 +84,6 @@ After installation or repair, run `/reload` in Pi or start a new Pi session.
 ```bash
 python3 tests/test_theme.py
 node --test tests/*.test.ts
-bash tests/test_install.sh
+YORHA_SKIP_PACKAGES=1 bash tests/test_install.sh
 python3 tests/test_tui_smoke.py
 ```

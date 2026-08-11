@@ -5,6 +5,7 @@ import { GLYPH, LABEL, UI, type OperationalMode } from "./tokens.ts";
 import { modelWidthForTerminal, shortenModelName } from "./footer-layout.ts";
 import { providerStateLabel, type ProviderLinkState } from "./provider-state.ts";
 import { formatProviderUsage, providerUsageRemainingPercent, type ProviderUsageState } from "./provider-usage.ts";
+import { buildFleetLabel, type BuildFleetState } from "./build-orchestration.ts";
 
 function fit(text: string, width: number): string {
   return truncateToWidth(text, Math.max(1, width), "");
@@ -64,6 +65,7 @@ export function createBunkerFooter(
   getState: () => CtfState,
   getProviderState: () => ProviderLinkState,
   getProviderUsage: () => ProviderUsageState,
+  getBuildFleet: () => BuildFleetState,
   requestRender: () => void,
 ) {
   const unsubscribe = footerData.onBranchChange(requestRender);
@@ -85,9 +87,9 @@ export function createBunkerFooter(
       const provider = theme.fg(providerColor, `${providerGlyph} ${providerStateLabel(providerState)}`);
       const branchText = branch ? `BRANCH ${branch}` : "NO BRANCH";
       const left = `${provider}  ${theme.fg("dim", branchText)}`;
-      const hacking = mode === "hacking"
+      const operational = mode === "hacking"
         ? theme.fg("accent", `HACKING UNIT ARMED · ${state.phase}`)
-        : theme.fg("dim", "HACKING UNIT STANDBY");
+        : theme.fg(getBuildFleet().totalActive > 0 ? "accent" : "dim", buildFleetLabel(getBuildFleet()));
       const modelId = ctx.model?.id ?? "NO MODEL";
       const model = theme.fg("text", shortenModelName(modelId, modelWidthForTerminal(width)));
       const thinking = theme.fg("accent", (ctx.thinkingLevel ?? "off").toUpperCase());
@@ -102,7 +104,7 @@ export function createBunkerFooter(
           ? "warning"
           : "muted";
       const allowance = usageText ? theme.fg(usageColor, usageText) : "";
-      const groups = [hacking, allowance, runtime].filter(Boolean);
+      const groups = [operational, allowance, runtime].filter(Boolean);
       let right = groups.join("  ");
       if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = [allowance, runtime].filter(Boolean).join("  ");
       if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = runtime;
@@ -254,7 +256,7 @@ export function createPodWidget(theme: Theme, mode: OperationalMode, state: CtfS
     ? state.evidence.length
       ? `Proposal: validate ${state.evidence.length} evidence record(s) before flag verification.`
       : "Proposal: begin triage and record reproducible evidence."
-    : "Analysis: build environment stable. No anomalies detected.";
+    : "Analysis: Build Unit ready. Superpowers and delegated support available.";
   return {
     invalidate() {},
     render(width: number): string[] {

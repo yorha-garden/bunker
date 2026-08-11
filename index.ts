@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { Text, Container } from "@earendil-works/pi-tui";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
@@ -13,6 +14,7 @@ import { codexAccountEmailFromToken, parseOpenAIRateLimitHeaders, queryCodexUsag
 import { CTF_PHASES, EMPTY_CTF_STATE, applyCtfUpdate, restoreCtfState, type CtfState } from "./ctf-state.ts";
 import { GLYPH, LABEL, UI, type OperationalMode } from "./tokens.ts";
 import { CTF_TOOL_NAME, activeToolsForMode } from "./mode.ts";
+import { EMPTY_BUILD_FLEET, buildFleetLabel, buildModeSystemPrompt, requestBuildFleet, type BuildFleetState } from "./build-orchestration.ts";
 
 const CTF_TOOL = CTF_TOOL_NAME;
 const STATE_ENTRY = "yorha-ctf-state";
@@ -46,12 +48,34 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   let overlayComponent: CtfOverlay | undefined;
   let overlayOpen = false;
   let currentContext: ExtensionContext | undefined;
+  let buildFleet: BuildFleetState = { ...EMPTY_BUILD_FLEET, entries: [] };
+  let buildFleetRefreshTimer: ReturnType<typeof setTimeout> | undefined;
+  let buildFleetRefreshInFlight = false;
+
+  const stopBuildFleetPolling = () => {
+    if (buildFleetRefreshTimer) clearTimeout(buildFleetRefreshTimer);
+    buildFleetRefreshTimer = undefined;
+  };
+
+  const refreshBuildFleet = async (ctx: ExtensionContext) => {
+    if (buildFleetRefreshInFlight || mode !== "build" || currentContext !== ctx) return;
+    buildFleetRefreshInFlight = true;
+    const next = await requestBuildFleet(pi);
+    buildFleetRefreshInFlight = false;
+    if (mode !== "build" || currentContext !== ctx) return;
+    buildFleet = next;
+    refreshStatus(ctx);
+    stopBuildFleetPolling();
+    if (next.totalActive > 0) {
+      buildFleetRefreshTimer = setTimeout(() => void refreshBuildFleet(ctx), 1000);
+    }
+  };
 
   const refreshStatus = (ctx: ExtensionContext) => {
     const theme = ctx.ui.theme;
     const text = mode === "hacking"
       ? theme.fg("accent", `${GLYPH.linked} HACKING · ${state.phase}`)
-      : theme.fg("dim", `${GLYPH.linked} BUILD`);
+      : theme.fg(buildFleet.totalActive > 0 ? "accent" : "dim", `${GLYPH.linked} BUILD${buildFleet.totalActive > 0 ? ` · ${buildFleet.totalActive} ACTIVE` : ""}`);
     ctx.ui.setStatus("yorha-mode", text);
     ctx.ui.setWidget("yorha-pod", (_tui, widgetTheme) => createPodWidget(widgetTheme, mode, state));
   };
@@ -97,7 +121,8 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
 
   const setToolForMode = () => {
     const active = pi.getActiveTools();
-    const next = activeToolsForMode(active, mode);
+    const available = pi.getAllTools().map((tool) => tool.name);
+    const next = activeToolsForMode(active, mode, available);
     if (next.length !== active.length || next.some((name, index) => name !== active[index])) pi.setActiveTools(next);
   };
 
@@ -159,13 +184,24 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   const applyMode = (next: OperationalMode, ctx: ExtensionContext, notify = true) => {
     mode = next;
     if (mode === "build") closeOverlay();
+    else stopBuildFleetPolling();
     setToolForMode();
     refreshStatus(ctx);
     ctx.ui.setTitle(`YoRHa Bunker · ${mode.toUpperCase()}`);
+    if (mode === "build") void refreshBuildFleet(ctx);
     if (notify) ctx.ui.notify(`${mode === "hacking" ? "Hacking" : "Build"} mode active.`, "info");
   };
 
   const toggleMode = (ctx: ExtensionContext) => applyMode(mode === "build" ? "hacking" : "build", ctx);
+
+  pi.on("resources_discover", async () => ({
+    skillPaths: [fileURLToPath(new URL("./skills", import.meta.url))],
+  }));
+
+  pi.on("before_agent_start", async (event) => {
+    if (mode !== "build") return;
+    return { systemPrompt: buildModeSystemPrompt(event.systemPrompt) };
+  });
 
   pi.registerTool({
     name: CTF_TOOL,
@@ -241,6 +277,19 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     handler: async (_args, ctx) => togglePanel(ctx),
   });
 
+  pi.registerCommand("yorha-agents", {
+    description: "Show the YoRHa Build Unit subagent fleet",
+    handler: async (_args, ctx) => {
+      if (mode !== "build") {
+        ctx.ui.notify("Build Unit is available only in Build mode.", "warning");
+        return;
+      }
+      await refreshBuildFleet(ctx);
+      const agents = buildFleet.entries.map((entry) => entry.role ? `${entry.agent}/${entry.role}` : entry.agent);
+      ctx.ui.notify(`${buildFleetLabel(buildFleet)}${agents.length ? ` · ${agents.join(", ")}` : ""}`, buildFleet.available ? "info" : "warning");
+    },
+  });
+
   pi.on("session_start", (_event, ctx) => {
     currentContext = ctx;
     const branch = ctx.sessionManager.getBranch();
@@ -275,6 +324,9 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
         : { provider: ctx.model?.provider ?? "", status: "unsupported" };
     providerResponseHealthy = false;
     activeExecutions.clear();
+    buildFleet = { ...EMPTY_BUILD_FLEET, entries: [] };
+    buildFleetRefreshInFlight = false;
+    stopBuildFleetPolling();
     ctx.ui.setWidget("yorha-execution", undefined);
     mode = "build";
     closeOverlay();
@@ -291,7 +343,7 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
         () => ctx.ui.theme,
         (message) => transmissionTelemetry.get(message.timestamp),
       );
-      ctx.ui.setFooter((tui, theme, footerData) => createBunkerFooter(theme, ctx, footerData, () => mode, () => state, () => providerState, () => providerUsage, () => tui.requestRender()));
+      ctx.ui.setFooter((tui, theme, footerData) => createBunkerFooter(theme, ctx, footerData, () => mode, () => state, () => providerState, () => providerUsage, () => buildFleet, () => tui.requestRender()));
       ctx.ui.setEditorComponent((tui, theme, keybindings) => new BunkerEditor(tui, theme, keybindings, () => mode, ctx.ui.theme));
       ctx.ui.setWorkingMessage("Pod 042 processing tactical data...");
       ctx.ui.setWorkingIndicator({
@@ -303,6 +355,17 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     refreshStatus(ctx);
     ctx.ui.setTitle("YoRHa Bunker · BUILD");
     if (ctx.mode === "tui" && ctx.model?.provider === "openai-codex") void refreshProviderUsage(ctx, true);
+    buildFleetRefreshTimer = setTimeout(() => void refreshBuildFleet(ctx), 100);
+  });
+
+  pi.events.on("subagent:async-started", () => {
+    if (currentContext && mode === "build") void refreshBuildFleet(currentContext);
+  });
+  pi.events.on("subagent:async-complete", () => {
+    if (currentContext && mode === "build") void refreshBuildFleet(currentContext);
+  });
+  pi.events.on("subagents:rpc:v1:ready", () => {
+    if (currentContext && mode === "build") void refreshBuildFleet(currentContext);
   });
 
   pi.on("turn_start", (event) => {
@@ -311,10 +374,14 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   pi.on("tool_execution_start", (event, ctx) => {
     activeExecutions.set(event.toolCallId, { name: event.toolName, startedAt: Date.now() });
     refreshExecutionWidget(ctx);
+    if (event.toolName === "subagent" || event.toolName === "subagent_wait") {
+      buildFleetRefreshTimer = setTimeout(() => void refreshBuildFleet(ctx), 100);
+    }
   });
   pi.on("tool_execution_end", (event, ctx) => {
     activeExecutions.delete(event.toolCallId);
     refreshExecutionWidget(ctx);
+    if (event.toolName === "subagent" || event.toolName === "subagent_wait") void refreshBuildFleet(ctx);
   });
   pi.on("before_provider_request", (_event, ctx) => {
     providerRequestStartedAt = performance.now();
@@ -372,6 +439,8 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   pi.on("session_shutdown", () => {
     closeOverlay();
     activeExecutions.clear();
+    stopBuildFleetPolling();
+    buildFleetRefreshInFlight = false;
     providerUsageController?.abort();
     providerUsageController = undefined;
     removeCodePanelPatch?.();
