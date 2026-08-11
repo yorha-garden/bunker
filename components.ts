@@ -101,10 +101,10 @@ export function createBunkerFooter(
         : usageRemaining !== undefined && usageRemaining <= 25
           ? "warning"
           : "muted";
-      const usage = usageText ? theme.fg(usageColor, usageText) : "";
-      const groups = [hacking, usage, runtime].filter(Boolean);
+      const allowance = usageText ? theme.fg(usageColor, usageText) : "";
+      const groups = [hacking, allowance, runtime].filter(Boolean);
       let right = groups.join("  ");
-      if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = [usage, runtime].filter(Boolean).join("  ");
+      if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = [allowance, runtime].filter(Boolean).join("  ");
       if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = runtime;
       return [spread(left, right, width)];
     },
