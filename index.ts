@@ -9,6 +9,7 @@ import { installCodePanelRenderer } from "./code-panel.ts";
 import { initialProviderState, providerStateAfterHttp, providerStateAfterMessage, type ProviderLinkState } from "./provider-state.ts";
 import { installTransmissionMetadataRenderer } from "./transmission-metadata.ts";
 import { calculateRequestTokens, type TransmissionTelemetry } from "./transmission-format.ts";
+import { parseOpenAIRateLimitHeaders, queryCodexUsage, type ProviderUsageState } from "./provider-usage.ts";
 import { CTF_PHASES, EMPTY_CTF_STATE, applyCtfUpdate, restoreCtfState, type CtfState } from "./ctf-state.ts";
 import { GLYPH, LABEL, UI, type OperationalMode } from "./tokens.ts";
 import { CTF_TOOL_NAME, activeToolsForMode } from "./mode.ts";
@@ -31,6 +32,9 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   const responseIconBase64 = readFileSync(new URL("./assets/generated/robot-face-sharp.png", import.meta.url)).toString("base64");
   const activeExecutions = new Map<string, ActiveExecution>();
   let providerState: ProviderLinkState = "offline";
+  let providerUsage: ProviderUsageState = { provider: "", status: "unsupported" };
+  let providerUsageController: AbortController | undefined;
+  let providerUsageRefreshStartedAt = 0;
   let providerResponseHealthy = false;
   let providerRequestStartedAt: number | undefined;
   const transmissionTelemetry = new Map<number, TransmissionTelemetry>();
@@ -50,6 +54,33 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
       : theme.fg("dim", `${GLYPH.linked} BUILD`);
     ctx.ui.setStatus("yorha-mode", text);
     ctx.ui.setWidget("yorha-pod", (_tui, widgetTheme) => createPodWidget(widgetTheme, mode, state));
+  };
+
+  const refreshProviderUsage = async (ctx: ExtensionContext, force = false) => {
+    const provider = ctx.model?.provider ?? "";
+    if (provider !== "openai-codex") {
+      providerUsageController?.abort();
+      providerUsageController = undefined;
+      providerUsage = provider === "openai"
+        ? { provider: "openai", status: "unavailable" }
+        : { provider, status: "unsupported" };
+      refreshStatus(ctx);
+      return;
+    }
+    if (!force && Date.now() - providerUsageRefreshStartedAt < 60_000) return;
+    providerUsageController?.abort();
+    const controller = new AbortController();
+    providerUsageController = controller;
+    providerUsageRefreshStartedAt = Date.now();
+    if (providerUsage.provider !== provider || providerUsage.status !== "available") {
+      providerUsage = { provider, status: "loading" };
+      refreshStatus(ctx);
+    }
+    const usage = await queryCodexUsage(controller.signal);
+    if (controller.signal.aborted || providerUsageController !== controller) return;
+    providerUsageController = undefined;
+    providerUsage = usage ?? { provider, status: "unavailable", updatedAt: Date.now() };
+    refreshStatus(ctx);
   };
 
   const refreshExecutionWidget = (ctx: ExtensionContext) => {
@@ -231,6 +262,14 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     }
     const hasAuth = ctx.model ? ctx.modelRegistry.getProviderAuthStatus(ctx.model.provider).configured : false;
     providerState = initialProviderState(Boolean(ctx.model), hasAuth);
+    providerUsageController?.abort();
+    providerUsageController = undefined;
+    providerUsageRefreshStartedAt = 0;
+    providerUsage = ctx.model?.provider === "openai-codex"
+      ? { provider: "openai-codex", status: "loading" }
+      : ctx.model?.provider === "openai"
+        ? { provider: "openai", status: "unavailable" }
+        : { provider: ctx.model?.provider ?? "", status: "unsupported" };
     providerResponseHealthy = false;
     activeExecutions.clear();
     ctx.ui.setWidget("yorha-execution", undefined);
@@ -249,7 +288,7 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
         () => ctx.ui.theme,
         (message) => transmissionTelemetry.get(message.timestamp),
       );
-      ctx.ui.setFooter((tui, theme, footerData) => createBunkerFooter(theme, ctx, footerData, () => mode, () => state, () => providerState, () => tui.requestRender()));
+      ctx.ui.setFooter((tui, theme, footerData) => createBunkerFooter(theme, ctx, footerData, () => mode, () => state, () => providerState, () => providerUsage, () => tui.requestRender()));
       ctx.ui.setEditorComponent((tui, theme, keybindings) => new BunkerEditor(tui, theme, keybindings, () => mode, ctx.ui.theme));
       ctx.ui.setWorkingMessage("Pod 042 processing tactical data...");
       ctx.ui.setWorkingIndicator({
@@ -260,6 +299,7 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     }
     refreshStatus(ctx);
     ctx.ui.setTitle("YoRHa Bunker · BUILD");
+    if (ctx.mode === "tui" && ctx.model?.provider === "openai-codex") void refreshProviderUsage(ctx, true);
   });
 
   pi.on("turn_start", (event) => {
@@ -283,6 +323,10 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     const next = providerStateAfterHttp(event.status);
     providerState = next.state;
     providerResponseHealthy = next.responseHealthy;
+    if (ctx.model?.provider === "openai") {
+      providerUsage = parseOpenAIRateLimitHeaders(event.headers)
+        ?? { provider: "openai", status: "unavailable", updatedAt: Date.now() };
+    }
     refreshStatus(ctx);
   });
   pi.on("message_end", (event, ctx) => {
@@ -305,16 +349,28 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     if (providerState === "active" && providerResponseHealthy) providerState = "linked";
     refreshStatus(ctx);
   });
+  pi.on("agent_settled", (_event, ctx) => {
+    if (ctx.mode === "tui" && ctx.model?.provider === "openai-codex") void refreshProviderUsage(ctx);
+  });
   pi.on("model_select", (event, ctx) => {
     const hasAuth = ctx.modelRegistry.getProviderAuthStatus(event.model.provider).configured;
     providerState = initialProviderState(true, hasAuth);
     providerResponseHealthy = false;
+    providerUsageRefreshStartedAt = 0;
+    providerUsage = event.model.provider === "openai-codex"
+      ? { provider: "openai-codex", status: "loading" }
+      : event.model.provider === "openai"
+        ? { provider: "openai", status: "unavailable" }
+        : { provider: event.model.provider, status: "unsupported" };
     refreshStatus(ctx);
+    if (ctx.mode === "tui" && event.model.provider === "openai-codex") void refreshProviderUsage(ctx, true);
   });
   pi.on("thinking_level_select", (_event, ctx) => refreshStatus(ctx));
   pi.on("session_shutdown", () => {
     closeOverlay();
     activeExecutions.clear();
+    providerUsageController?.abort();
+    providerUsageController = undefined;
     removeCodePanelPatch?.();
     removeCodePanelPatch = undefined;
     removeTransmissionMetadataPatch?.();

@@ -4,6 +4,7 @@ import { CTF_PHASES, type CtfState } from "./ctf-state.ts";
 import { GLYPH, LABEL, UI, type OperationalMode } from "./tokens.ts";
 import { modelWidthForTerminal, shortenModelName } from "./footer-layout.ts";
 import { providerStateLabel, type ProviderLinkState } from "./provider-state.ts";
+import { formatProviderUsage, providerUsageRemainingPercent, type ProviderUsageState } from "./provider-usage.ts";
 
 function fit(text: string, width: number): string {
   return truncateToWidth(text, Math.max(1, width), "");
@@ -62,6 +63,7 @@ export function createBunkerFooter(
   getMode: () => OperationalMode,
   getState: () => CtfState,
   getProviderState: () => ProviderLinkState,
+  getProviderUsage: () => ProviderUsageState,
   requestRender: () => void,
 ) {
   const unsubscribe = footerData.onBranchChange(requestRender);
@@ -91,8 +93,19 @@ export function createBunkerFooter(
       const thinking = theme.fg("accent", (ctx.thinkingLevel ?? "off").toUpperCase());
       const context = theme.fg("muted", usage ? `CTX ${Math.round(usage.percent ?? 0)}%` : "CTX —");
       const runtime = `${model}  ${thinking}  ${context}`;
-      const fullRight = `${hacking}  ${runtime}`;
-      const right = visibleWidth(left) + visibleWidth(fullRight) + 1 <= width ? fullRight : runtime;
+      const usageState = getProviderUsage();
+      const usageText = formatProviderUsage(usageState, width);
+      const usageRemaining = providerUsageRemainingPercent(usageState);
+      const usageColor = usageRemaining !== undefined && usageRemaining <= 10
+        ? "error"
+        : usageRemaining !== undefined && usageRemaining <= 25
+          ? "warning"
+          : "muted";
+      const usage = usageText ? theme.fg(usageColor, usageText) : "";
+      const groups = [hacking, usage, runtime].filter(Boolean);
+      let right = groups.join("  ");
+      if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = [usage, runtime].filter(Boolean).join("  ");
+      if (visibleWidth(left) + visibleWidth(right) + 1 > width) right = runtime;
       return [spread(left, right, width)];
     },
   };

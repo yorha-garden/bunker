@@ -26,6 +26,7 @@ Model responses and verbose execution are visually isolated:
 - Fenced Markdown renders as recessed, syntax-highlighted panels with `BASH`, `TEXT`, or the declared language in the header; literal triple-backtick fences are not displayed.
 - Provider telemetry is lifecycle-backed: `STANDBY`, `ACTIVE`, `LINKED`, `DEGRADED`, or `OFFLINE`.
 - Footer runtime telemetry is ordered as `$model $level $context`; the thinking level is amber and has no redundant label.
+- Provider allowance telemetry is shown beside runtime data for OpenAI Codex subscriptions and OpenAI API keys. Codex displays the remaining subscription window and reset time through the installed `codex` CLI; OpenAI displays request/token rate-limit percentages reported by API response headers. OpenAI does not expose prepaid-credit or billing balance through ordinary API keys.
 - Every finalized assistant transmission ends with that request's input-plus-output token total and its elapsed provider response time. The counter resets for each user request, compacts responsively, and persists outside model context.
 
 Pixelarticons SVG sources are distributed under the MIT license in `assets/pixelarticons/LICENSE`. Generated 48×48 transparent PNGs are derived from those sources for Ghostty/Kitty terminal image rendering.
