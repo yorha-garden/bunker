@@ -9,7 +9,7 @@ import { installCodePanelRenderer } from "./code-panel.ts";
 import { initialProviderState, providerStateAfterHttp, providerStateAfterMessage, type ProviderLinkState } from "./provider-state.ts";
 import { installTransmissionMetadataRenderer } from "./transmission-metadata.ts";
 import { calculateRequestTokens, type TransmissionTelemetry } from "./transmission-format.ts";
-import { parseOpenAIRateLimitHeaders, queryCodexUsage, type ProviderUsageState } from "./provider-usage.ts";
+import { codexAccountEmailFromToken, parseOpenAIRateLimitHeaders, queryCodexUsage, type ProviderUsageState } from "./provider-usage.ts";
 import { CTF_PHASES, EMPTY_CTF_STATE, applyCtfUpdate, restoreCtfState, type CtfState } from "./ctf-state.ts";
 import { GLYPH, LABEL, UI, type OperationalMode } from "./tokens.ts";
 import { CTF_TOOL_NAME, activeToolsForMode } from "./mode.ts";
@@ -76,7 +76,10 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
       providerUsage = { provider, status: "loading" };
       refreshStatus(ctx);
     }
-    const usage = await queryCodexUsage(controller.signal);
+    const auth = await ctx.modelRegistry.getProviderAuth("openai-codex");
+    if (controller.signal.aborted || providerUsageController !== controller) return;
+    const expectedEmail = codexAccountEmailFromToken(auth?.auth.apiKey);
+    const usage = await queryCodexUsage({ expectedEmail, signal: controller.signal });
     if (controller.signal.aborted || providerUsageController !== controller) return;
     providerUsageController = undefined;
     providerUsage = usage ?? { provider, status: "unavailable", updatedAt: Date.now() };

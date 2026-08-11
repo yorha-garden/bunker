@@ -138,7 +138,23 @@ export function formatProviderUsage(state: ProviderUsageState, width: number, no
   return `${width >= 150 ? "OPENAI API" : "API"} ${fields.join(" · ") || "—"}`;
 }
 
-export async function queryCodexUsage(signal?: AbortSignal, timeoutMs = 8_000): Promise<ProviderUsageState | undefined> {
+export function codexAccountEmailFromToken(token: string | undefined): string | undefined {
+  if (!token) return undefined;
+  try {
+    const payload = JSON.parse(Buffer.from(token.split(".")[1]!, "base64url").toString("utf8"));
+    const email = payload?.["https://api.openai.com/profile"]?.email;
+    return typeof email === "string" ? email.toLowerCase() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function queryCodexUsage(options: {
+  expectedEmail?: string;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+} = {}): Promise<ProviderUsageState | undefined> {
+  const { expectedEmail, signal, timeoutMs = 8_000 } = options;
   return new Promise((resolve) => {
     const child = spawn("codex", ["app-server", "--stdio"], { stdio: ["pipe", "pipe", "ignore"] });
     let buffer = "";
@@ -168,8 +184,16 @@ export async function queryCodexUsage(signal?: AbortSignal, timeoutMs = 8_000): 
           const message = JSON.parse(line) as { id?: number; result?: unknown };
           if (message.id === 1) {
             child.stdin.write(`${JSON.stringify({ method: "initialized", params: {} })}\n`);
-            child.stdin.write(`${JSON.stringify({ id: 2, method: "account/rateLimits/read", params: {} })}\n`);
+            child.stdin.write(`${JSON.stringify({ id: 2, method: "account/read", params: {} })}\n`);
           } else if (message.id === 2) {
+            const account = message.result as { account?: { email?: unknown } } | undefined;
+            const email = typeof account?.account?.email === "string" ? account.account.email.toLowerCase() : undefined;
+            if (expectedEmail && email !== expectedEmail.toLowerCase()) {
+              finish();
+            } else {
+              child.stdin.write(`${JSON.stringify({ id: 3, method: "account/rateLimits/read", params: {} })}\n`);
+            }
+          } else if (message.id === 3) {
             finish(parseCodexUsageResult(message.result));
           }
         } catch {}

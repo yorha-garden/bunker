@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  codexAccountEmailFromToken,
   formatProviderUsage,
   parseCodexUsageResult,
   parseOpenAIRateLimitHeaders,
@@ -8,6 +9,14 @@ import {
 } from "../provider-usage.ts";
 
 const now = 1_800_000_000_000;
+
+test("Codex OAuth account identity can be compared without exposing the token", () => {
+  const payload = Buffer.from(JSON.stringify({
+    "https://api.openai.com/profile": { email: "Operator@Example.com" },
+  })).toString("base64url");
+  assert.equal(codexAccountEmailFromToken(`header.${payload}.signature`), "operator@example.com");
+  assert.equal(codexAccountEmailFromToken("invalid"), undefined);
+});
 
 test("Codex usage converts used percentages into remaining allowance", () => {
   const usage = parseCodexUsageResult({
