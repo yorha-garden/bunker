@@ -1,5 +1,18 @@
 import { spawn } from "node:child_process";
 
+export const PROVIDER_USAGE_REFRESH_INTERVAL_MS = 30_000;
+
+export function shouldPollProviderUsage(
+  provider: string,
+  lastRefreshStartedAt: number,
+  now = Date.now(),
+  force = false,
+  intervalMs = PROVIDER_USAGE_REFRESH_INTERVAL_MS,
+): boolean {
+  if (provider !== "openai-codex") return false;
+  return force || now - lastRefreshStartedAt >= intervalMs;
+}
+
 export interface UsageWindow {
   remainingPercent: number;
   resetAt?: number;
@@ -94,6 +107,17 @@ export function parseOpenAIRateLimitHeaders(headers: Record<string, string>, now
   const tokens = apiLimit(headers, "tokens");
   if (!requests && !tokens) return undefined;
   return { provider: "openai", status: "available", requests, tokens, updatedAt: now };
+}
+
+export function openAIUsageAfterHeaders(
+  previous: ProviderUsageState,
+  headers: Record<string, string>,
+  now = Date.now(),
+): ProviderUsageState {
+  return parseOpenAIRateLimitHeaders(headers, now)
+    ?? (previous.provider === "openai" && previous.status === "available"
+      ? previous
+      : { provider: "openai", status: "unavailable", updatedAt: now });
 }
 
 function limitPercent(limit: ApiRateLimit | undefined): number | undefined {

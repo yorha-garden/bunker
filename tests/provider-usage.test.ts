@@ -3,9 +3,12 @@ import test from "node:test";
 import {
   codexAccountEmailFromToken,
   formatProviderUsage,
+  PROVIDER_USAGE_REFRESH_INTERVAL_MS,
   parseCodexUsageResult,
+  openAIUsageAfterHeaders,
   parseOpenAIRateLimitHeaders,
   providerUsageRemainingPercent,
+  shouldPollProviderUsage,
 } from "../provider-usage.ts";
 
 const now = 1_800_000_000_000;
@@ -63,4 +66,26 @@ test("unsupported or absent allowance data stays unobtrusive", () => {
   assert.equal(parseCodexUsageResult({ rateLimits: {} }), undefined);
   assert.equal(formatProviderUsage({ provider: "anthropic", status: "unsupported" }, 120, now), "");
   assert.equal(formatProviderUsage({ provider: "openai-codex", status: "loading" }, 120, now), "CODEX …");
+});
+
+test("periodic usage polling is short and Codex-only unless forced", () => {
+  assert.equal(PROVIDER_USAGE_REFRESH_INTERVAL_MS, 30_000);
+  assert.equal(shouldPollProviderUsage("openai-codex", 0, PROVIDER_USAGE_REFRESH_INTERVAL_MS - 1), false);
+  assert.equal(shouldPollProviderUsage("openai-codex", 0, PROVIDER_USAGE_REFRESH_INTERVAL_MS), true);
+  assert.equal(shouldPollProviderUsage("openai-codex", now, now + 1, true), true);
+  assert.equal(shouldPollProviderUsage("openai", 0, now), false);
+  assert.equal(shouldPollProviderUsage("anthropic", 0, now), false);
+});
+
+test("OpenAI usage keeps the latest known header values when later responses omit limits", () => {
+  const previous = parseOpenAIRateLimitHeaders({
+    "x-ratelimit-limit-requests": "500",
+    "x-ratelimit-remaining-requests": "450",
+  }, now)!;
+
+  assert.equal(openAIUsageAfterHeaders(previous, { "content-type": "application/json" }, now + 1_000), previous);
+  assert.deepEqual(
+    openAIUsageAfterHeaders({ provider: "openai", status: "unavailable" }, { "content-type": "application/json" }, now + 1_000),
+    { provider: "openai", status: "unavailable", updatedAt: now + 1_000 },
+  );
 });
