@@ -7,6 +7,7 @@ import { Type } from "typebox";
 import { BunkerEditor, BunkerHeader, CtfOverlay, createBunkerFooter, createExecutionWidget, createPodWidget, createResponseCard, type ActiveExecution } from "./components.ts";
 import { transformAssistantMarkdown } from "./response.ts";
 import { installCodePanelRenderer } from "./code-panel.ts";
+import { installToolOutputAffordance } from "./tool-output-affordance.ts";
 import { initialProviderState, providerStateAfterHttp, providerStateAfterMessage, type ProviderLinkState } from "./provider-state.ts";
 import { installTransmissionMetadataRenderer } from "./transmission-metadata.ts";
 import { calculateRequestTokens, type TransmissionTelemetry } from "./transmission-format.ts";
@@ -42,6 +43,7 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   let providerRequestStartedAt: number | undefined;
   const transmissionTelemetry = new Map<number, TransmissionTelemetry>();
   let removeCodePanelPatch: (() => void) | undefined;
+  let removeToolOutputAffordancePatch: (() => void) | undefined;
   let removeTransmissionMetadataPatch: (() => void) | undefined;
   let mode: OperationalMode = "build";
   let state: CtfState = { ...EMPTY_CTF_STATE, evidence: [] };
@@ -358,6 +360,8 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
       ctx.ui.setHeader((_tui, theme) => new BunkerHeader(theme, ctx, () => mode));
       removeCodePanelPatch?.();
       removeCodePanelPatch = installCodePanelRenderer();
+      removeToolOutputAffordancePatch?.();
+      removeToolOutputAffordancePatch = installToolOutputAffordance(Text);
       removeTransmissionMetadataPatch?.();
       removeTransmissionMetadataPatch = installTransmissionMetadataRenderer(
         () => ctx.ui.theme,
@@ -471,6 +475,8 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     providerUsageController = undefined;
     removeCodePanelPatch?.();
     removeCodePanelPatch = undefined;
+    removeToolOutputAffordancePatch?.();
+    removeToolOutputAffordancePatch = undefined;
     removeTransmissionMetadataPatch?.();
     removeTransmissionMetadataPatch = undefined;
     if (currentContext) {

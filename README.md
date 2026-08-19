@@ -9,7 +9,7 @@ Global Pi TUI theme and extension matching the approved Ghostty/YoRHa environmen
 | `Shift+Tab` | Toggle Build/Hacking mode |
 | `Ctrl+Shift+H` | Toggle the Hacking Unit overlay (Hacking mode only) |
 | `Ctrl+Shift+T` | Cycle Pi thinking level |
-| `Ctrl+O` | Toggle compact/detailed tool output (Pi native) |
+| `Ctrl+O` | Toggle compact/detailed tool output (Pi native fallback) |
 | `/yorha-mode build|hacking` | Explicitly set mode |
 | `/yorha-panel` | Toggle the Hacking Unit overlay |
 | `/yorha-agents` | Show the active Build Unit subagent fleet |
@@ -36,7 +36,7 @@ Model responses and verbose execution are visually isolated:
 - The padded Pod icon and `TACTICAL ANALYSIS` label share one response-card row; thinking text remains directly beneath it.
 - Active tools use one compact live line (`EXECUTING <TOOL> · <elapsed>`) above the editor instead of a large duplicate execution card.
 - The Pod heading is locality-free; `LOCAL`/`LINK` now precedes the mode and `INSERT` state in the editor's centered channel divider.
-- Tool boxes use the recessed `#131317` surface while retaining Pi's built-in renderers and `Ctrl+O` expansion.
+- Tool boxes use the recessed `#131317` surface while retaining Pi's built-in renderers and native `Ctrl+O` expansion. Collapsed output hints now advertise `Click output / Ctrl+O to expand` when rendered; click routing is best-effort and terminal/runtime dependent, while `Ctrl+O` remains reliable.
 - Fenced Markdown renders as recessed, syntax-highlighted panels with `BASH`, `TEXT`, or the declared language in the header; literal triple-backtick fences are not displayed.
 - Provider telemetry is lifecycle-backed: `STANDBY`, `ACTIVE`, `LINKED`, `DEGRADED`, or `OFFLINE`.
 - Footer runtime telemetry is ordered as `$model $level $context`; the thinking level is amber and has no redundant label.
