@@ -1,89 +1,157 @@
-# YoRHa Bunker HUD for Pi
+# YoRHa Bunker for Pi
 
-Global Pi TUI theme and extension matching the approved Ghostty/YoRHa environment.
+Private Pi coding agent extension that applies a YoRHa-inspired TUI and adds separate Build and Hacking operating modes. It is not a standalone application.
 
-## Controls
+This repository is private and maintained as a personal operations reference.
 
-| Control | Action |
-|---|---|
-| `Shift+Tab` | Toggle Build/Hacking mode |
-| `Ctrl+Shift+H` | Toggle the Hacking Unit overlay (Hacking mode only) |
-| `Ctrl+Shift+T` | Cycle Pi thinking level |
-| `Ctrl+O` | Toggle compact/detailed tool output (Pi native fallback) |
-| `/yorha-mode build|hacking` | Explicitly set mode |
-| `/yorha-panel` | Toggle the Hacking Unit overlay |
-| `/yorha-agents` | Show the active Build Unit subagent fleet |
+## What the extension changes in Pi
 
-Build is always the startup mode. CTF metadata persists in session entries but is hidden until Hacking mode is active. The agent-managed `yorha_ctf_status` tool is active only in Hacking mode and stores verification status, never flag text.
+The installer adds a global `yorha-bunker` theme and the `yorha-bunker-hud` extension. The extension provides:
 
-## Build orchestration
+- a custom header, footer, editor, response cards, code panels, and compact tool activity;
+- Build-mode access to Superpowers skills and pi-subagents orchestration;
+- a Hacking Unit overlay and session-persisted CTF status;
+- provider connection, allowance, token, and response-time telemetry.
 
-Build mode combines pinned [Superpowers v6.2.0](https://github.com/obra/superpowers) skills with [pi-subagents v0.46.0](https://github.com/nicobailon/pi-subagents):
+The installer also enables Pi's `quietStartup` setting, sets global `tuiMode` to `fullscreen`, and binds the thinking-level cycle to `Ctrl+Shift+T`. It preserves the existing tool-expansion binding, whose Pi default is `Ctrl+O`.
 
-- YoRHa injects a Build-only bootstrap that requires skill discovery before action.
-- The `yorha-build-orchestration` skill coordinates brainstorming, planning, TDD, implementation, specification/code review, and fresh verification.
-- `subagent` and `subagent_wait` are enabled in Build mode and removed in Hacking mode.
-- The status line and footer show the bounded active fleet reported by pi-subagents' public RPC rather than scraping tool output.
-- Read-only scouts/reviewers may run concurrently. Writers must have disjoint scopes and separate worktrees; the parent reviews and integrates their changes.
-- Superpowers' upstream always-on extension is intentionally filtered out. Its skills remain available, while YoRHa owns mode-aware activation.
+## Requirements
 
-The default package agents include `scout`, `researcher`, `worker`, `reviewer`, and `oracle`. Delegated processes share filesystem and environment access. Agent tool allowlists are capability controls, **not OS sandboxes**; review third-party package updates and never delegate secrets.
+- The Pi coding agent, installed on `PATH` as `pi`.
+- Node.js, Bash, Python 3, and `jq`.
+- Network access when Pi installs the pinned Build packages.
+- The installed `codex` CLI for OpenAI Codex subscription-allowance telemetry. The rest of the extension works without this optional telemetry source.
+- Ghostty and Kitty are optional and only enable terminal image rendering; neither is required for the rest of the extension.
 
-Model responses and verbose execution are visually isolated:
+Pi extensions execute with full user permissions. Inspect third-party package updates before installing them. Delegated agents share filesystem and environment access; tool allowlists control agent capabilities but are **not OS sandboxes**. Never delegate secrets.
 
-- Rasterized Pixelarticons robot cards mark each model turn.
-- `POD 042 / RESPONSE` and `END TRANSMISSION` frame finalized model text.
-- The padded Pod icon and `TACTICAL ANALYSIS` label share one response-card row; thinking text remains directly beneath it.
-- Active tools use one compact live line (`EXECUTING <TOOL> · <elapsed>`) above the editor instead of a large duplicate execution card.
-- The Pod heading is locality-free; `LOCAL`/`LINK` now precedes the mode and `INSERT` state in the editor's centered channel divider.
-- Tool boxes use the recessed `#131317` surface while retaining Pi's built-in renderers and native `Ctrl+O` expansion. Collapsed output hints now advertise `Click output / Ctrl+O to expand` when rendered; click routing is best-effort and terminal/runtime dependent, while `Ctrl+O` remains reliable.
-- Fenced Markdown renders as recessed, syntax-highlighted panels with `BASH`, `TEXT`, or the declared language in the header; literal triple-backtick fences are not displayed.
-- Provider telemetry is lifecycle-backed: `STANDBY`, `ACTIVE`, `LINKED`, `DEGRADED`, or `OFFLINE`.
-- Footer runtime telemetry is ordered as `$model $level $context`; the thinking level is amber and has no redundant label.
-- Provider allowance telemetry is shown beside runtime data for OpenAI Codex subscriptions and OpenAI API keys. Codex displays the remaining subscription window and reset time through the installed `codex` CLI; OpenAI displays request/token rate-limit percentages reported by API response headers. OpenAI does not expose prepaid-credit or billing balance through ordinary API keys.
-- Every finalized assistant transmission ends with that request's input-plus-output token total and its elapsed provider response time. The counter resets for each user request, compacts responsively, and persists outside model context.
+## Installation
 
-Pixelarticons SVG sources are distributed under the MIT license in `assets/pixelarticons/LICENSE`. Generated 48×48 transparent PNGs are derived from those sources for Ghostty/Kitty terminal image rendering.
-
-The panel requires at least 110 columns and 28 rows. It hides responsively below that threshold and reserves an eight-row bottom margin so it does not cover the Operator Input Channel.
-
-## Install
+From this repository, run:
 
 ```bash
 bash install.sh
 ```
 
-The installer creates a timestamped restore bundle under `~/.pi/agent/backups/` before changing anything. It preserves unrelated settings, keybindings, themes, extensions, and package entries. It installs exact pinned package versions; inspect their source before installation because Pi extensions execute with full user permissions. Set `YORHA_SKIP_PACKAGES=1` only for offline staging or installer tests—the package entries are still configured and Pi may reconcile them later.
+The installer creates a timestamped restore bundle under `~/.pi/agent/backups/` before changing settings, keybindings, the installed extension, or the theme. It preserves unrelated settings, keybindings, themes, extensions, and package entries.
 
-Original pre-install restore bundle created for this deployment:
+The Build packages are pinned as:
+
+- [pi-subagents v0.46.0](https://github.com/nicobailon/pi-subagents): `npm:pi-subagents@0.46.0`
+- [Superpowers v6.2.0](https://github.com/obra/superpowers): `git:github.com/obra/superpowers@v6.2.0`
+
+For offline staging or installer tests only, skip package installation with:
 
 ```bash
-bash ~/.pi/agent/backups/yorha-bunker-20260807T235306Z-64447/restore.sh
+YORHA_SKIP_PACKAGES=1 bash install.sh
 ```
 
-The installer also enables Pi's supported `quietStartup` setting and global `tuiMode: "fullscreen"`. Fullscreen uses the terminal alternate screen so the previous shell prompt is restored when Pi exits; override per invocation with `pi --tui-mode regular`.
+This still configures the package entries. Pi may reconcile them later.
 
-The `quietStartup` setting hides built-in startup help and loaded resource listings while preserving the custom YoRHa header. Run `pi --verbose` whenever the full resource inventory is needed.
+After installation, run `/reload` in Pi or start a new Pi session. Fullscreen mode uses the terminal alternate screen, so Pi restores the previous shell prompt when it exits. Override it for one invocation with `pi --tui-mode regular`.
 
-Current malformed/duplicate skill diagnostics can be repaired separately and reversibly:
+`quietStartup` hides Pi's built-in startup help and loaded-resource list while keeping the YoRHa header. Use `pi --verbose` when you need the full resource inventory.
+
+## Controls
+
+Build is the startup mode for every session.
+
+| Control | Action |
+|---|---|
+| `Shift+Tab` | Toggle Build and Hacking modes |
+| `Ctrl+Shift+H` | Toggle the Hacking Unit overlay; Hacking mode only |
+| `Ctrl+Shift+T` | Cycle Pi's thinking level |
+| `Ctrl+O` | Toggle compact and detailed tool output using Pi's native control |
+| `/yorha-panel` | Toggle the Hacking Unit overlay |
+| `/yorha-agents` | Show the active Build Unit subagent fleet |
+
+Use `/yorha-mode build|hacking` to set the operating mode explicitly.
+
+## Build mode
+
+Build mode adds a mode-specific system prompt that instructs the agent to load the `yorha-build-orchestration` skill. The workflow calls for skill discovery, brainstorming or design clarification, a written plan, test-driven implementation, review, and fresh verification.
+
+The pinned pi-subagents package supplies `scout`, `researcher`, `worker`, `reviewer`, and `oracle`. Its `subagent` and `subagent_wait` tools are available only in Build mode and only when registered by the package. `/yorha-agents`, the status line, and the footer read fleet state through pi-subagents' public RPC interface rather than parsing tool output.
+
+Read-only scouts and reviewers may run concurrently. Writers need disjoint scopes and separate worktrees, and the parent agent remains responsible for reviewing and integrating their work. The Superpowers package's always-on extension is disabled; its skills remain available through YoRHa's mode-aware activation.
+
+## Hacking mode
+
+Hacking mode removes the Build subagent tools and enables `yorha_ctf_status`. The tool records the challenge, category, target, ordered phase, concise evidence, and verification state. Its phases are `TRIAGE`, `ANALYSIS`, `EXPLOITATION`, `VERIFICATION`, and `COMPLETE`.
+
+CTF state persists in session entries but stays hidden until Hacking mode is active. Do not submit or record flag text with `yorha_ctf_status`; its schema has no dedicated flag field. The tool may mark a flag verified only during `VERIFICATION` or `COMPLETE`.
+
+## Provider telemetry and rendering
+
+The footer reports provider link state as `STANDBY`, `ACTIVE`, `LINKED`, `DEGRADED`, or `OFFLINE`. Footer runtime order is `$model $level $context`: model, thinking level, then context. The thinking level is amber and has no extra label.
+
+Allowance telemetry depends on the selected OpenAI provider:
+
+- OpenAI Codex subscription sessions query the installed `codex` CLI every 30 seconds and show remaining subscription allowance and reset time.
+- OpenAI API-key sessions show remaining request and token percentages from API response headers. Ordinary API keys do not expose prepaid credit or billing balance.
+
+Each finalized assistant transmission shows that request's input-plus-output token total and provider response time. The values reset for each request, use a compact format at narrow widths, persist with the session, and remain outside model context.
+
+Model output uses a Pixelarticons robot card with `TACTICAL ANALYSIS`, then `POD 042 / RESPONSE` and `END TRANSMISSION` framing. Thinking text remains directly below the card and is not wrapped as a final response. Active tools use one line in the form `EXECUTING <TOOL> · <elapsed>` above the editor. The editor divider shows `LOCAL` or `LINK` before the mode and `INSERT` state.
+
+Tool output and fenced Markdown use the recessed `#131317` surface while retaining Pi's built-in tool renderers. Code fences render as syntax-highlighted panels labeled `BASH`, `TEXT`, or the declared language; the literal triple-backtick fences are not shown. When space permits, collapsed tool output says `Click output / Ctrl+O to expand`. Click handling depends on the terminal and runtime; `Ctrl+O` is the reliable fallback.
+
+Pixelarticons SVG sources are distributed under the MIT license in `assets/pixelarticons/LICENSE`. Rasterized Pixelarticons are generated as 48×48 transparent PNGs for Ghostty and Kitty terminal image rendering.
+
+## Project layout
+
+| Path | Purpose |
+|---|---|
+| `index.ts` | Extension entry point, Pi events, modes, shortcuts, commands, and tools |
+| `components.ts` | Header, footer, editor, Hacking overlay, response card, and execution widget |
+| `build-orchestration.ts` | Build prompt and pi-subagents fleet RPC |
+| `mode.ts`, `ctf-state.ts` | Mode-specific tools and persisted CTF state |
+| `provider-state.ts`, `provider-usage.ts` | Provider link and allowance telemetry |
+| `response.ts`, `transmission-*.ts` | Response framing and per-request telemetry |
+| `code-panel.ts`, `tool-output-affordance.ts` | Markdown and tool-output rendering |
+| `theme/`, `assets/` | Pi theme and generated/source visual assets |
+| `skills/yorha-build-orchestration/` | Build workflow skill installed with the extension |
+| `install.sh`, `repair-startup.sh` | Installation, backup, repair, and restore setup |
+| `tests/` | Unit, installer, repair, theme, and TUI smoke checks |
+
+## Verification
+
+Run the repository checks from its root:
+
+```bash
+node --test tests/*.test.ts
+python3 tests/test_theme.py
+YORHA_SKIP_PACKAGES=1 bash tests/test_install.sh
+bash tests/test_repair_startup.sh
+python3 tests/test_tui_smoke.py
+```
+
+The TUI smoke test requires a working local Pi installation and compatible terminal test environment.
+
+## Repair and restore
+
+Installation and startup repair are separate operations. To repair the current malformed or duplicate `academic-paper-composer` and `academic-paper-strategist` skill diagnostics, run:
 
 ```bash
 bash repair-startup.sh
 ```
 
-Original pre-repair restore bundle created for this deployment:
+The repair creates its own timestamped restore bundle, consolidates the affected skills under `~/.agents/skills/`, enables quiet startup, and prints its restore path. Run `/reload` or restart Pi afterward.
+
+Original pre-install restore bundle for this deployment:
+
+```bash
+bash ~/.pi/agent/backups/yorha-bunker-20260807T235306Z-64447/restore.sh
+```
+
+Original pre-repair restore bundle for this deployment:
 
 ```bash
 bash ~/.pi/agent/backups/yorha-startup-20260808T111909Z-46744/restore.sh
 ```
 
-After installation or repair, run `/reload` in Pi or start a new Pi session.
+For later installations or repairs, use the `restore.sh` path printed by that run rather than one of the original deployment paths above.
 
-## Verify
+## Known constraints
 
-```bash
-python3 tests/test_theme.py
-node --test tests/*.test.ts
-YORHA_SKIP_PACKAGES=1 bash tests/test_install.sh
-python3 tests/test_tui_smoke.py
-```
+The Hacking Unit overlay is 34 columns wide. It requires a terminal at least 110 columns wide and 28 rows high, hides below that threshold, and reserves an eight-row bottom margin so it does not cover the Operator Input Channel.
