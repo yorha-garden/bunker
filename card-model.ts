@@ -93,7 +93,7 @@ export function grepCard(args: { pattern: string }, text: string, o: CardOpts): 
     body.push(file);
     for (const m of ms) { if (shown >= 8) break; body.push(`  ${m}`); shown++; }
   }
-  if (matches.length > shown) body.push(`… ${matches.length - shown} more matches`);
+  if (matches.length > shown) body.push(`… ${plural(matches.length - shown, "more match", "more matches")}`);
   const summary = matches.length === 0 ? "0 matches" : `${plural(matches.length, "match", "matches")} in ${plural(files.size, "file")}`;
   return {
     tool: "grep", arg: `"${args.pattern}"`, status: status(o), summary,

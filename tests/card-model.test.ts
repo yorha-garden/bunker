@@ -91,3 +91,9 @@ test("find and ls count results", () => {
   assert.equal(lsCard({ path: "." }, "a\nb\nc", ok).summary, "3 entries");
   assert.equal(findCard({ pattern: "*.ts" }, "a.ts", ok).autoExpand, false);
 });
+
+test("grep overflow line uses singular and plural", () => {
+  const out = (n: number) => Array.from({ length: n }, (_, i) => `f.ts:${i + 1}:x`).join("\n");
+  assert.equal(grepCard({ pattern: "x" }, out(9), ok).body.at(-1), "… 1 more match");
+  assert.equal(grepCard({ pattern: "x" }, out(10), ok).body.at(-1), "… 2 more matches");
+});
