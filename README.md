@@ -37,7 +37,7 @@ The installer creates a timestamped restore bundle under `~/.pi/agent/backups/` 
 
 The Build packages are pinned as:
 
-- [pi-subagents v0.46.0](https://github.com/nicobailon/pi-subagents): `npm:pi-subagents@0.46.0`
+- [pi-subagents v0.76.1](https://github.com/nicobailon/pi-subagents): `npm:pi-subagents@0.76.1`
 - [Superpowers v6.2.0](https://github.com/obra/superpowers): `git:github.com/obra/superpowers@v6.2.0`
 
 For offline staging or installer tests only, skip package installation with:
