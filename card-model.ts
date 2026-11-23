@@ -15,9 +15,11 @@ export interface CardModel {
 
 export function formatDuration(ms?: number): string | undefined {
   if (ms === undefined) return undefined;
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s`;
+  if (Math.round(ms) < 1000) return `${Math.round(ms)}ms`;
+  const tenths = Math.round(ms / 100);
+  if (tenths < 600) return `${(tenths / 10).toFixed(1)}s`;
+  const seconds = Math.round(ms / 1000);
+  return `${Math.floor(seconds / 60)}m${seconds % 60}s`;
 }
 
 const status = (o: CardOpts): CardStatus => (o.isPartial ? "running" : o.isError ? "fail" : "ok");

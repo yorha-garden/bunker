@@ -11,6 +11,14 @@ test("formatDuration is compact", () => {
   assert.equal(formatDuration(75000), "1m15s");
 });
 
+test("formatDuration rounds before splitting units", () => {
+  assert.equal(formatDuration(999.6), "1.0s");
+  assert.equal(formatDuration(59940), "59.9s");
+  assert.equal(formatDuration(59950), "1m0s");
+  assert.equal(formatDuration(119600), "2m0s");
+  assert.equal(formatDuration(119400), "1m59s");
+});
+
 test("bash success collapses with test summary", () => {
   const c = bashCard({ command: "npm test" }, "ℹ tests 41\nℹ pass 41\nℹ fail 0", ok);
   assert.equal(c.status, "ok");
