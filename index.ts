@@ -1,13 +1,19 @@
-import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import {
+  createBashToolDefinition, createEditToolDefinition, createFindToolDefinition, createGrepToolDefinition,
+  createLsToolDefinition, createReadToolDefinition, createWriteToolDefinition,
+  type ExtensionAPI, type ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { Text, Container } from "@earendil-works/pi-tui";
+import { Text, Container, Image, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import { BunkerEditor, BunkerHeader, CtfOverlay, createBunkerFooter, createExecutionWidget, createPodWidget, createResponseCard, type ActiveExecution } from "./components.ts";
 import { transformAssistantMarkdown } from "./response.ts";
 import { installCodePanelRenderer } from "./code-panel.ts";
 import { installToolOutputAffordance } from "./tool-output-affordance.ts";
+import { registerToolCards, type PiToolOptions } from "./tool-cards-register.ts";
 import { initialProviderState, providerStateAfterHttp, providerStateAfterMessage, type ProviderLinkState } from "./provider-state.ts";
 import { installTransmissionMetadataRenderer } from "./transmission-metadata.ts";
 import { calculateRequestTokens, type TransmissionTelemetry } from "./transmission-format.ts";
@@ -223,6 +229,32 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
   pi.on("before_agent_start", async (event) => {
     if (mode !== "build") return;
     return { systemPrompt: buildModeSystemPrompt(event.systemPrompt) };
+  });
+
+  const toolDefinitionFactories = {
+    bash: (cwd: string, options: PiToolOptions) => createBashToolDefinition(cwd, options.bash),
+    read: (cwd: string, options: PiToolOptions) => createReadToolDefinition(cwd, options.read),
+    edit: (cwd: string) => createEditToolDefinition(cwd),
+    write: (cwd: string) => createWriteToolDefinition(cwd),
+    grep: (cwd: string) => createGrepToolDefinition(cwd),
+    find: (cwd: string) => createFindToolDefinition(cwd),
+    ls: (cwd: string) => createLsToolDefinition(cwd),
+  };
+  registerToolCards(pi, {
+    cwd: process.cwd(),
+    homeDir: homedir(),
+    assetsDir: new URL("./assets/generated/", import.meta.url),
+    env: process.env,
+    metrics: { visibleWidth, truncateToWidth },
+    createDefinition: (tool, cwd, options) => toolDefinitionFactories[tool](cwd, options),
+    settings: () => pi.getSettings(),
+    readFile: (url) => readFileSync(url),
+    // The CTF panel is an overlay, and pi-tui skips overlays on rows that draw an image.
+    imagesAllowed: () => !overlayOpen,
+    createImage: (base64, opts) =>
+      new Image(base64, "image/png", { fallbackColor: (text) => text },
+        { maxWidthCells: opts.maxWidthCells, maxHeightCells: opts.maxHeightCells, filename: opts.filename },
+        { widthPx: opts.widthPx, heightPx: opts.heightPx }),
   });
 
   pi.registerTool({

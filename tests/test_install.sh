@@ -20,6 +20,9 @@ RESTORE=$(printf '%s\n' "$OUT1" | awk '/^Restore:/ {print $2}')
 [[ $(jq -r '.packages[] | select(type == "string" and startswith("npm:pi-subagents"))' "$HOME/.pi/agent/settings.json") == npm:pi-subagents@0.46.0 ]]
 [[ $(jq -r '.packages[] | select(type == "object" and (.source | contains("github.com/obra/superpowers"))) | .extensions | length' "$HOME/.pi/agent/settings.json") == 0 ]]
 [[ -f "$HOME/.pi/agent/extensions/yorha-bunker-hud/build-orchestration.ts" ]]
+for f in tool-cards.ts tool-cards-register.ts card-model.ts icons.ts output-detect.ts text-width.ts sanitize.ts assets/generated/tool-bash.png assets/generated/tool-ls.png; do
+  [[ -f "$HOME/.pi/agent/extensions/yorha-bunker-hud/$f" ]] || { echo "missing installed file: $f" >&2; exit 1; }
+done
 [[ -f "$HOME/.pi/agent/extensions/yorha-bunker-hud/skills/yorha-build-orchestration/SKILL.md" ]]
 [[ $(jq -r '."app.thinking.cycle"' "$HOME/.pi/agent/keybindings.json") == ctrl+shift+t ]]
 [[ $(jq -r '."tui.editor.yank"' "$HOME/.pi/agent/keybindings.json") == ctrl+y ]]
