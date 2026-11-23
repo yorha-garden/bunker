@@ -29,6 +29,14 @@ Collapsed = one line: `<glyph> <TOOL>  <key arg> · <duration> · <summary>`.
 ## Expanded card
 Header line, then recessed panel. Content by detector: diff (green/red), JSON (pretty-printed), test (pass/fail summary first), error (failing line highlighted), text (plain). Long output truncated middle to first 20 / last 10 lines with `N lines hidden · Ctrl+O`.
 
+## Icons (Ghostty, Kitty graphics)
+Target terminal is Ghostty. Tool, status, and file-type icons are Pixelarticons rendered as inline Kitty-graphics images, reusing the existing `Image`/`pixelIcon` path in `components.ts`.
+- Assets: `assets/pixelarticons/*.svg` (source, with LICENSE) rasterized to `assets/generated/*.png`, recolored per theme state (accent, success, error). Icons: bash (terminal), read (file), edit (pen/edit), write (file-plus), grep (search), find (search-box), ls (folder), pass, fail, running. `install.sh` already copies `assets/generated/*.png`; the new files ride along.
+- One-line cards require a 1-row icon: render at 2 cells wide (cells are about 1:2, so a square image is 1 row). Verify empirically in Ghostty before committing to the layout; if an icon spans more than 1 row, fall back to the glyph for collapsed lines and keep the image for expanded headers only.
+- `icons.ts` registry maps tool/status to `{ png, glyph }`. Image mode is used when the terminal supports Kitty graphics (`TERM_PROGRAM=ghostty` or Pi's image-capability check); otherwise the Unicode glyph (`✓ ✗ ⟳`, tool initials) is used. Setting `yorha.icons: "image" | "glyph" | "auto"` (default `auto`) overrides.
+- Risks: Pi has had Kitty redraw/overlay bugs (fixed through 1.6.0) and many images in a long transcript cost bandwidth; icon bytes are base64-cached once per icon, not per card. Narrow widths drop the icon first, then duration, then summary.
+- Tests: registry mapping and fallback selection (unit), width math with and without icon, plus a Ghostty manual smoke check recorded in the PR.
+
 ## Constraints
 - Every line truncated to terminal width; narrow widths drop duration then summary before clipping the command.
 - `render()` returns `readonly string[]` and never mutates cached arrays (Pi 1.6.0).
