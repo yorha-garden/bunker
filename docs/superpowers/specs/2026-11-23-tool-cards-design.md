@@ -42,6 +42,9 @@ Target terminal is Ghostty. Tool, status, and file-type icons are Pixelarticons 
 - Icon mode is chosen by the `YORHA_ICONS=image|glyph|auto` environment variable instead of a `yorha.icons` settings key, so the installer and Pi's settings.json stay unchanged.
 - Registration lives in `tool-cards-register.ts` with every Pi dependency (tool definitions, `Image`, text metrics) injected from `index.ts`, so it is unit-tested with fakes and no Pi packages. Cards use `renderShell: "self"` so Pi's default boxed shell and its per-state background are not applied; `renderCall` draws only while the call is running and `renderResult` draws the final card.
 - The recessed `#131317` surface is not applied to card bodies (code panels still use it).
+- Not implemented: running elapsed time (the running header shows `running`), the `write` `(new|overwrote)` marker (Pi's result does not say), `grep` match highlighting, and the test-summary-first body for test output (the summary is in the header only).
+- Only automatically expanded cards are cut to the first 20 / last 10 lines with `N lines hidden · Ctrl+O`; a card expanded with `Ctrl+O` shows its full body, and `grep` then lists every match instead of the first 8.
+- Image icons are replaced by glyphs while the CTF panel overlay is open, because pi-tui does not draw overlays on rows that hold an image.
 
 ## Constraints
 - Every line truncated to terminal width; narrow widths drop duration then summary before clipping the command.
