@@ -94,7 +94,13 @@ Each finalized assistant transmission shows that request's input-plus-output tok
 
 Model output uses a Pixelarticons robot card with `TACTICAL ANALYSIS`, then `POD 042 / RESPONSE` and `END TRANSMISSION` framing. Thinking text remains directly below the card and is not wrapped as a final response. Active tools use one line in the form `EXECUTING <TOOL> · <elapsed>` above the editor. The editor divider shows `LOCAL` or `LINK` before the mode and `INSERT` state.
 
-Tool output and fenced Markdown use the recessed `#131317` surface while retaining Pi's built-in tool renderers. Code fences render as syntax-highlighted panels labeled `BASH`, `TEXT`, or the declared language; the literal triple-backtick fences are not shown. When space permits, collapsed tool output says `Click output / Ctrl+O to expand`. Click handling depends on the terminal and runtime; `Ctrl+O` is the reliable fallback.
+Built-in tools (`bash`, `read`, `edit`, `write`, `grep`, `find`, `ls`) render as tool cards: one header line of the form `<icon> <status> <TOOL>  <key argument> · <duration> · <summary>`, for example `✓ BASH  npm test · 2.1s · exit 0 · 41 passed`. The status is a colored text glyph (`⟳` running, `✓` ok, `✗` failed). Execution is unchanged; only rendering is overridden. Each call shows exactly one card: a running header while the tool executes, replaced by the result card when it finishes.
+
+Cards collapse by a hybrid policy. Failed commands (non-zero exit, tracebacks, failing tests), `edit` diffs, `write` content, and `grep` matches expand automatically; successful `bash`, `read`, `find`, and `ls` output stays on the header line. `Ctrl+O` (or a click, where the terminal supports it) expands any card. Expanded bodies are colored by detected content (diff, JSON, test, error, text) and long output keeps the first 20 and last 10 lines with `N lines hidden · Ctrl+O`. At narrow widths the icon, then duration, then summary are dropped before the command is clipped.
+
+Each tool has a 48×48 Pixelarticons icon drawn as a one-row inline image in Ghostty and Kitty, with a Unicode glyph (`$ ▤ ✎ ▣ ⌕ ◎ ▦`) elsewhere. Set `YORHA_ICONS=image`, `YORHA_ICONS=glyph`, or `YORHA_ICONS=auto` (default; images for Ghostty and Kitty) in the environment that launches Pi to override detection. A missing icon file falls back to the glyph.
+
+Fenced Markdown uses the recessed `#131317` surface. Code fences render as syntax-highlighted panels labeled `BASH`, `TEXT`, or the declared language; the literal triple-backtick fences are not shown. For output still drawn by Pi's own renderers, collapsed output says `Click output / Ctrl+O to expand` when space permits. Click handling depends on the terminal and runtime; `Ctrl+O` is the reliable fallback.
 
 Pixelarticons SVG sources are distributed under the MIT license in `assets/pixelarticons/LICENSE`. Rasterized Pixelarticons are generated as 48×48 transparent PNGs for Ghostty and Kitty terminal image rendering.
 
@@ -109,6 +115,8 @@ Pixelarticons SVG sources are distributed under the MIT license in `assets/pixel
 | `provider-state.ts`, `provider-usage.ts` | Provider link and allowance telemetry |
 | `response.ts`, `transmission-*.ts` | Response framing and per-request telemetry |
 | `code-panel.ts`, `tool-output-affordance.ts` | Markdown and tool-output rendering |
+| `tool-cards.ts`, `tool-cards-register.ts`, `card-model.ts` | Tool card layout, per-tool summaries, and dependency-injected registration |
+| `icons.ts`, `output-detect.ts`, `text-width.ts` | Icon registry and `YORHA_ICONS` mode, output detector, width helpers |
 | `theme/`, `assets/` | Pi theme and generated/source visual assets |
 | `skills/yorha-build-orchestration/` | Build workflow skill installed with the extension |
 | `install.sh`, `repair-startup.sh` | Installation, backup, repair, and restore setup |
