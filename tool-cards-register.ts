@@ -55,12 +55,16 @@ const textOf = (result: { content?: Array<{ type: string; text?: string }> } | u
 
 const str = (value: unknown): string => (typeof value === "string" ? sanitizeText(value) : "");
 const num = (value: unknown): number | undefined => (typeof value === "number" ? value : undefined);
+const imageMimeType = (result: any): string | undefined => {
+  const image = (result?.content ?? []).find((c: any) => c?.type === "image");
+  return image ? str(image.mimeType) || "image/unknown" : undefined;
+};
 
 type Build = (args: any, text: string, result: any, opts: card.CardOpts) => card.CardModel;
 
 const BUILDERS: Record<ToolName, Build> = {
   bash: (a, t, _r, o) => card.bashCard({ command: str(a.command) }, t, o),
-  read: (a, t, _r, o) => card.readCard({ path: str(a.path), offset: num(a.offset), limit: num(a.limit) }, t, o),
+  read: (a, t, r, o) => card.readCard({ path: str(a.path), offset: num(a.offset), limit: num(a.limit) }, t, o, imageMimeType(r)),
   edit: (a, t, r, o) => card.editCard({ path: str(a.path) }, typeof r?.details?.diff === "string" ? sanitizeText(r.details.diff) : undefined, t, o),
   write: (a, t, _r, o) => card.writeCard({ path: str(a.path), content: str(a.content) }, t, o),
   grep: (a, t, _r, o) => card.grepCard({ pattern: str(a.pattern) }, t, o),

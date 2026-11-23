@@ -43,11 +43,11 @@ export function bashCard(args: { command: string }, text: string, o: CardOpts): 
   };
 }
 
-export function readCard(args: { path: string; offset?: number; limit?: number }, text: string, o: CardOpts): CardModel {
+export function readCard(args: { path: string; offset?: number; limit?: number }, text: string, o: CardOpts, imageMimeType?: string): CardModel {
   const n = lines(text).length;
   const from = args.offset ? ` · from ${args.offset}` : "";
   return {
-    tool: "read", arg: args.path, status: status(o), summary: `${plural(n, "line")}${from}`,
+    tool: "read", arg: args.path, status: status(o), summary: imageMimeType ? `image · ${imageMimeType}` : `${plural(n, "line")}${from}`,
     duration: formatDuration(o.durationMs), autoExpand: false, kind: "text", body: lines(text),
   };
 }

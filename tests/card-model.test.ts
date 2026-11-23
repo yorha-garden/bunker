@@ -107,3 +107,8 @@ test("find and ls do not count Pi's trailing limit notice", () => {
   assert.deepEqual(ls.body, ["a", "b/", "[500 entries limit reached. Use limit=1000 for more]"]);
   assert.equal(lsCard({ path: "." }, "a\n\n[50.0KB limit reached]", ok).summary, "1 entry");
 });
+
+test("read of an image summarizes as an image", () => {
+  const c = readCard({ path: "shot.png" }, "Read image file [image/png]", ok, "image/png");
+  assert.equal(c.summary, "image · image/png");
+});

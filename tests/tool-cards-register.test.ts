@@ -258,3 +258,12 @@ test("imagesAllowed is checked at render time and falls back to the glyph when f
   assert.match(card.render(80)[0], /^\$ ✓ BASH/);
   assert.equal(h.images.length, 1);
 });
+
+test("read of an image result shows an image summary", () => {
+  const h = setup();
+  const result = { content: [{ type: "text", text: "Read image file [image/png]" }, { type: "image", data: "AAAA", mimeType: "image/png" }] };
+  const lines = tool(h, "read").renderResult(result, done, theme, ctx({ path: "shot.png" })).render(100);
+  assert.match(lines[0], /READ\s+shot\.png · 1\.2s · image · image\/png$/);
+  const bare = tool(h, "read").renderResult({ content: [{ type: "image", data: "AAAA", mimeType: "image/jpeg" }] }, done, theme, ctx({ path: "a.jpg" })).render(100);
+  assert.match(bare[0], /READ\s+a\.jpg · 1\.2s · image · image\/jpeg$/);
+});
