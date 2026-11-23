@@ -123,13 +123,46 @@ test("glyph mode never creates images and draws the text glyph", () => {
   assert.match(lines[0], /^\$ ✓ BASH/);
 });
 
-test("image mode passes the icon row through, advancing the cursor past the kitty image", () => {
+test("image mode passes the icon row through, padding the two kitty icon cells with spaces", () => {
   const h = setup({ env: { YORHA_ICONS: "image" } });
   const lines = tool(h, "bash").renderResult(text("ok"), done, theme, ctx({ command: "echo" })).render(80);
   assert.deepEqual(h.images.map((i) => i.filename), ["tool-bash.png"]);
   assert.equal(h.reads.length, 1);
-  assert.equal(lines[0].startsWith(`${KITTY_SEQUENCE}\x1b[2C `), true);
-  assert.match(lines[0], /✓ BASH\s+echo/);
+  assert.equal(lines[0].includes("\x1b[2C"), false);
+  assert.equal(lines[0].startsWith(`${KITTY_SEQUENCE}   ✓ BASH`), true);
+});
+
+test("the icon line is built once per tool and stays identical across renders", () => {
+  let id = 0;
+  const images: string[] = [];
+  const h2 = setup({
+    env: { YORHA_ICONS: "image" },
+    createImage: (_b, opts) => { images.push(opts.filename); const seq = `\x1b_Ga=T,i=${++id},C=1;AAAA\x1b\\`; return { render: () => [seq] }; },
+  });
+  const bash = tool(h2, "bash");
+  const heads = new Set<string>();
+  for (let i = 0; i < 5; i++) {
+    heads.add(bash.renderCall({ command: "sleep" }, theme, ctx({ command: "sleep" }, { isPartial: true })).render(80)[0].split("⟳")[0]);
+    heads.add(bash.renderResult(text("ok"), done, theme, ctx({ command: "sleep" })).render(80)[0].split("✓")[0]);
+  }
+  tool(h2, "ls").renderResult(text("a"), done, theme, ctx({})).render(80);
+  tool(h2, "ls").renderResult(text("a"), done, theme, ctx({})).render(80);
+  assert.deepEqual(images, ["tool-bash.png", "tool-ls.png"]);
+  assert.equal(heads.size, 1);
+});
+
+test("image header width math counts the icon as two cells plus a space", () => {
+  const h = setup({ env: { YORHA_ICONS: "image" } });
+  const bash = tool(h, "bash");
+  const textOnly = "✓ BASH  echo · 1.2s · exit 0";
+  const fits = bash.renderResult(text("ok"), done, theme, ctx({ command: "echo" })).render(textOnly.length + 3)[0];
+  assert.equal(fits, `${KITTY_SEQUENCE}   ${textOnly}`);
+  const tooNarrow = bash.renderResult(text("ok"), done, theme, ctx({ command: "echo" })).render(textOnly.length + 2)[0];
+  assert.equal(tooNarrow.includes(KITTY_SEQUENCE), false);
+  for (const width of [80, 40, 20, 10]) {
+    const line = bash.renderResult(text("ok"), done, theme, ctx({ command: "echo" })).render(width)[0];
+    assert.equal(defaultMetrics.visibleWidth(line.replace(KITTY_SEQUENCE, "")) <= width, true, `width ${width}`);
+  }
 });
 
 test("image mode defaults on for Ghostty and off elsewhere", () => {

@@ -80,13 +80,12 @@ export function toolOptionsFromSettings(settings: PiToolSettings, homeDir: strin
 export function registerToolCards(pi: { registerTool(tool: any): void }, deps: RegisterToolCardsDeps): void {
   const mode = resolveIconMode(deps.env.YORHA_ICONS, deps.env);
   const readFile = deps.readFile ?? (() => { throw new Error("readFile not provided"); });
-  const iconData = new Map<ToolName, string | null>();
+  // One icon line per tool: a new Image per render would allocate a new Kitty id and force image redraws.
+  const iconLineCache = new Map<ToolName, string | undefined>();
 
-  const iconLines = (tool: ToolName): readonly string[] | undefined => {
-    if (mode !== "image") return undefined;
+  const buildIconLine = (tool: ToolName): string | undefined => {
     try {
-      if (!iconData.has(tool)) iconData.set(tool, readFile(new URL(iconFile(tool), deps.assetsDir)).toString("base64"));
-      const base64 = iconData.get(tool)!;
+      const base64 = readFile(new URL(iconFile(tool), deps.assetsDir)).toString("base64");
       const image = deps.createImage(base64, {
         maxWidthCells: ICON_CELLS, maxHeightCells: 1, widthPx: ICON_PIXELS, heightPx: ICON_PIXELS, filename: iconFile(tool),
       });
@@ -94,21 +93,25 @@ export function registerToolCards(pi: { registerTool(tool: any): void }, deps: R
       const first = lines[0] ?? "";
       const drawsImage = lines.length === 1 && (first.includes(KITTY_PREFIX) || first.includes(ITERM2_PREFIX));
       if (!drawsImage) return undefined;
-      // Kitty draws with C=1, so the cursor stays put; step over the icon cells before the text.
-      return [first.includes(KITTY_PREFIX) ? `${first}\x1b[${ICON_CELLS}C` : first];
+      // Kitty draws with C=1 (cursor stays put), so spaces reserve the icon cells; iTerm2 advances the cursor itself.
+      return first.includes(KITTY_PREFIX) ? `${first}${" ".repeat(ICON_CELLS)}` : first;
     } catch {
-      iconData.set(tool, null);
       return undefined;
     }
   };
 
+  const iconLines = (tool: ToolName): readonly string[] | undefined => {
+    if (mode !== "image") return undefined;
+    if (!iconLineCache.has(tool)) iconLineCache.set(tool, buildIconLine(tool));
+    const line = iconLineCache.get(tool);
+    return line === undefined ? undefined : [line];
+  };
+
   const cardComponent = (tool: ToolName, model: card.CardModel, theme: CardTheme, expanded: boolean, outputPad: number): RenderComponent => {
-    let icon: readonly string[] | undefined;
-    let iconResolved = false;
     return {
       invalidate() {},
       render(width: number): readonly string[] {
-        if (!iconResolved) { icon = iconLines(tool); iconResolved = true; }
+        const icon = iconLines(tool);
         const indent = " ".repeat(outputPad);
         const lines = renderCardLines(model, Math.max(1, width - outputPad), theme, { expanded, iconLines: icon, metrics: deps.metrics });
         return lines.map((line) => `${indent}${line}`);

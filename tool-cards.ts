@@ -6,6 +6,7 @@ import { defaultMetrics, type TextMetrics } from "./text-width.ts";
 export interface CardTheme { fg(color: string, text: string): string; bold(text: string): string }
 
 const STATUS_COLOR = { running: "warning", ok: "success", fail: "error" } as const;
+// Cells covered by an image icon line: Kitty pads them with spaces, iTerm2 advances the cursor past the image.
 const IMAGE_ICON_CELLS = 2;
 
 function header(model: CardModel, width: number, theme: CardTheme, metrics: TextMetrics, iconLines?: readonly string[]): string {
