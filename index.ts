@@ -249,6 +249,8 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     createDefinition: (tool, cwd, options) => toolDefinitionFactories[tool](cwd, options),
     settings: () => pi.getSettings(),
     readFile: (url) => readFileSync(url),
+    // The CTF panel is an overlay, and pi-tui skips overlays on rows that draw an image.
+    imagesAllowed: () => !overlayOpen,
     createImage: (base64, opts) =>
       new Image(base64, "image/png", { fallbackColor: (text) => text },
         { maxWidthCells: opts.maxWidthCells, maxHeightCells: opts.maxHeightCells, filename: opts.filename },

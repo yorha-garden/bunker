@@ -39,6 +39,8 @@ export interface RegisterToolCardsDeps {
     opts: { maxWidthCells: number; maxHeightCells: number; widthPx: number; heightPx: number; filename: string },
   ) => { render(width: number): readonly string[] };
   readFile?: (url: URL) => Buffer;
+  /** Checked on every render; false forces the glyph (pi-tui drops overlays on rows that hold an image). */
+  imagesAllowed: () => boolean;
 }
 
 const ICON_PIXELS = 48;
@@ -101,7 +103,7 @@ export function registerToolCards(pi: { registerTool(tool: any): void }, deps: R
   };
 
   const iconLines = (tool: ToolName): readonly string[] | undefined => {
-    if (mode !== "image") return undefined;
+    if (mode !== "image" || !deps.imagesAllowed()) return undefined;
     if (!iconLineCache.has(tool)) iconLineCache.set(tool, buildIconLine(tool));
     const line = iconLineCache.get(tool);
     return line === undefined ? undefined : [line];

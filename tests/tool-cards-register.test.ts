@@ -24,6 +24,7 @@ function setup(overrides: Partial<RegisterToolCardsDeps> & { imageLines?: readon
     env: { TERM_PROGRAM: "other" },
     metrics: defaultMetrics,
     settings: () => ({}),
+    imagesAllowed: () => true,
     createDefinition: (name, cwd, options) => {
       h.created.push({ tool: name, cwd, options });
       return {
@@ -242,4 +243,18 @@ test("tool output and header args are sanitized before rendering", () => {
   assert.equal(result.some((l) => l.includes("foo")), true);
   assert.equal(result.some((l) => l.includes("bar   baz")), true);
   assert.match(result[0], /BASH\s+echo   hi/);
+});
+
+test("imagesAllowed is checked at render time and falls back to the glyph when false", () => {
+  let allowed = false;
+  const h = setup({ env: { YORHA_ICONS: "image" }, imagesAllowed: () => allowed });
+  const card = tool(h, "bash").renderResult(text("ok"), done, theme, ctx({ command: "echo" }));
+  assert.match(card.render(80)[0], /^\$ ✓ BASH/);
+  assert.equal(h.images.length, 0);
+  allowed = true;
+  assert.equal(card.render(80)[0].startsWith(KITTY_SEQUENCE), true);
+  assert.equal(h.images.length, 1);
+  allowed = false;
+  assert.match(card.render(80)[0], /^\$ ✓ BASH/);
+  assert.equal(h.images.length, 1);
 });
