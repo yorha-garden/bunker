@@ -27,7 +27,7 @@ export class BunkerHeader {
     private readonly getMode: () => OperationalMode,
   ) {}
 
-  render(width: number): string[] {
+  render(width: number): readonly string[] {
     const mode = this.getMode();
     const modeText = mode === "hacking" ? "HACKING MODE" : "BUILD MODE";
     const usage = this.ctx.getContextUsage();
@@ -72,7 +72,7 @@ export function createBunkerFooter(
   return {
     dispose: unsubscribe,
     invalidate() {},
-    render(width: number): string[] {
+    render(width: number): readonly string[] {
       const mode = getMode();
       const state = getState();
       const usage = ctx.getContextUsage();
@@ -124,7 +124,7 @@ export class BunkerEditor extends CustomEditor {
     super(tui, editorTheme, keybindings);
   }
 
-  render(width: number): string[] {
+  render(width: number): readonly string[] {
     const mode = this.getMode().toUpperCase();
     const locality = mode === "HACKING" ? "LINK" : "LOCAL";
     const status = this.displayTheme.fg("accent", `${locality} · ${mode} · INSERT`);
@@ -157,7 +157,7 @@ export class CtfOverlay {
     }, 180);
   }
 
-  render(width: number): string[] {
+  render(width: number): readonly string[] {
     const state = this.getState();
     const inner = Math.max(8, width - 2);
     const border = (body: string) => this.theme.fg("border", "│") + fit(body, inner) + this.theme.fg("border", "│");
@@ -218,7 +218,7 @@ export function createResponseCard(theme: Theme, iconBase64: string) {
   const image = pixelIcon(theme, iconBase64, "pixelarticons-robot-face-sharp.png");
   return {
     invalidate() { image.invalidate(); },
-    render(width: number): string[] {
+    render(width: number): readonly string[] {
       const padding = "  ";
       const imageLines = image.render(Math.min(4, Math.max(1, width - padding.length)));
       const label = theme.fg("accent", `${GLYPH.analysis} TACTICAL ANALYSIS`);
@@ -240,7 +240,7 @@ export interface ActiveExecution {
 export function createExecutionWidget(theme: Theme, executions: readonly ActiveExecution[]) {
   return {
     invalidate() {},
-    render(width: number): string[] {
+    render(width: number): readonly string[] {
       const names = [...new Set(executions.map((execution) => execution.name.toUpperCase()))].join(" + ");
       const startedAt = Math.min(...executions.map((execution) => execution.startedAt));
       const elapsed = Math.max(0, Date.now() - startedAt) / 1000;
@@ -259,7 +259,7 @@ export function createPodWidget(theme: Theme, mode: OperationalMode, state: CtfS
     : "Analysis: Build Unit ready. Superpowers and delegated support available.";
   return {
     invalidate() {},
-    render(width: number): string[] {
+    render(width: number): readonly string[] {
       return [
         fit(theme.fg("dim", LABEL.pod), width),
         fit(theme.fg("text", message), width),

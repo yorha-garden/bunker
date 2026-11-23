@@ -15,13 +15,13 @@ export function clickFriendlyExpandHint(text: string, maxWidth?: number): string
   return maxWidth !== undefined && visibleWidth(next) > maxWidth ? text : next;
 }
 
-export function installToolOutputAffordance(TextClass: { prototype: { render(width: number): string[] } }): () => void {
+export function installToolOutputAffordance(TextClass: { prototype: { render(width: number): readonly string[] } }): () => void {
   const prototype = TextClass.prototype as any;
   const prior = prototype[PATCH] as { original: Function; patched?: Function } | undefined;
   const original = prior?.original ?? prototype.render;
 
-  const patched = function (this: unknown, width: number): string[] {
-    return original.call(this, width).map((line: string) => clickFriendlyExpandHint(line, width));
+  const patched = function (this: unknown, width: number): readonly string[] {
+    return (original.call(this, width) as readonly string[]).map((line: string) => clickFriendlyExpandHint(line, width));
   };
 
   prototype[PATCH] = { original, patched };
