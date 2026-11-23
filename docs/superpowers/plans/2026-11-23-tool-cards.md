@@ -666,7 +666,7 @@ test("every line fits the width, with narrow degradation", () => {
 test("long bodies show hidden-lines notice", () => {
   const body = Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n");
   const lines = renderCardLines(bashCard({ command: "x" }, body, ok), 100, theme, { expanded: true });
-  assert.equal(lines.some((l) => l.includes("20 lines hidden")), true);
+  assert.equal(lines.some((l) => l.includes("30 lines hidden")), true);
 });
 
 test("edit renders diff with colors requested for + and -", () => {
@@ -763,7 +763,7 @@ export function renderCardLines(
 - [ ] **Step 4: Run to verify it passes**
 
 Run: `node --test tests/tool-cards.test.ts`
-Expected: PASS. Note the hidden-lines notice test requires `expanded: true` with a 60-line body (`20 lines hidden`: 60 − 20 − 10 = 30, so adjust the test's expected number to match the implementation: for 60 lines, hidden is 30). **Fix the test's assertion to `"30 lines hidden"` before running.**
+Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
@@ -840,7 +840,6 @@ export function registerToolCards(pi: Pick<ExtensionAPI, "registerTool">, deps: 
   };
 
   const make = (tool: ToolName, original: any, build: (args: any, text: string, result: any, o: card.CardOpts) => card.CardModel) => {
-    const lastModel = new WeakMap<object, card.CardModel>();
     pi.registerTool({
       ...original,
       renderCall(args: any, theme: any, context: any): Component {
