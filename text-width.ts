@@ -35,4 +35,5 @@ function truncateToWidth(text: string, width: number, ellipsis = ""): string {
   return `${out}${styled ? RESET : ""}${ellipsis}`;
 }
 
+/** Test-only fallback that counts code points; production code must inject Pi's visibleWidth/truncateToWidth. */
 export const defaultMetrics: TextMetrics = { visibleWidth, truncateToWidth };
