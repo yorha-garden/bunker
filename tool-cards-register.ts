@@ -8,13 +8,30 @@ export interface RenderComponent {
   render(width: number): readonly string[];
 }
 
+/** The subset of Pi settings that Pi passes to its own built-in tool definitions. */
+export interface PiToolSettings {
+  shellPath?: string;
+  shellCommandPrefix?: string;
+  images?: { autoResize?: boolean };
+}
+
+/** Options for createXToolDefinition, as Pi builds them in AgentSession._buildRuntime. */
+export interface PiToolOptions {
+  bash: { commandPrefix?: string; shellPath?: string };
+  read: { autoResizeImages: boolean };
+}
+
 export interface RegisterToolCardsDeps {
+  /** Launch cwd; its definitions supply name, description, schema and prompt metadata only. */
   cwd: string;
+  homeDir: string;
   assetsDir: URL;
   env: NodeJS.ProcessEnv;
   metrics: TextMetrics;
-  /** Pi's own definitions from createXToolDefinition(cwd); execute and schemas are kept untouched. */
-  definitions: Record<ToolName, any>;
+  /** Builds Pi's own definition (createXToolDefinition(cwd, options)) for one built-in tool. */
+  createDefinition: (tool: ToolName, cwd: string, options: PiToolOptions) => any;
+  /** Pi's effective settings (pi.getSettings()); read only when a tool executes. */
+  settings: () => PiToolSettings;
   /** Builds a Pi Image component for a PNG icon. */
   createImage: (
     base64: string,
@@ -48,6 +65,16 @@ const BUILDERS: Record<ToolName, Build> = {
   // Pi's ls prints "(empty directory)" instead of an empty listing.
   ls: (a, t, _r, o) => card.lsCard({ path: str(a.path) || undefined }, t === "(empty directory)" ? "" : t, o),
 };
+
+/** Pi expands "~" in shellPath (settings-manager getShellPath) before handing it to the bash tool. */
+export function toolOptionsFromSettings(settings: PiToolSettings, homeDir: string): PiToolOptions {
+  const raw = settings.shellPath;
+  const shellPath = raw === "~" ? homeDir : raw?.startsWith("~/") ? `${homeDir}/${raw.slice(2)}` : raw;
+  return {
+    bash: { commandPrefix: settings.shellCommandPrefix, shellPath },
+    read: { autoResizeImages: settings.images?.autoResize ?? true },
+  };
+}
 
 export function registerToolCards(pi: { registerTool(tool: any): void }, deps: RegisterToolCardsDeps): void {
   const mode = resolveIconMode(deps.env.YORHA_ICONS, deps.env);
@@ -88,10 +115,22 @@ export function registerToolCards(pi: { registerTool(tool: any): void }, deps: R
     };
   };
 
+  // Pi rebuilds its own tools for the session cwd on cross-project resume, so execution follows ctx.cwd.
+  const sessionDefinitions = new Map<string, any>();
+  const definitionFor = (tool: ToolName, cwd: string): any => {
+    const key = `${tool}\0${cwd}`;
+    if (!sessionDefinitions.has(key)) {
+      sessionDefinitions.set(key, deps.createDefinition(tool, cwd, toolOptionsFromSettings(deps.settings(), deps.homeDir)));
+    }
+    return sessionDefinitions.get(key);
+  };
+
   for (const tool of Object.keys(BUILDERS) as ToolName[]) {
     const build = BUILDERS[tool];
     pi.registerTool({
-      ...deps.definitions[tool],
+      ...deps.createDefinition(tool, deps.cwd, toolOptionsFromSettings({}, deps.homeDir)),
+      execute: (id: string, params: any, signal: any, onUpdate: any, ctx: any) =>
+        definitionFor(tool, ctx?.cwd ?? deps.cwd).execute(id, params, signal, onUpdate, ctx),
       // Pi stacks renderCall above renderResult inside one shell. Own the shell and let exactly one of the two draw.
       renderShell: "self",
       renderCall(args: any, theme: CardTheme, context: any): RenderComponent {

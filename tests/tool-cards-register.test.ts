@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { registerToolCards, type RegisterToolCardsDeps } from "../tool-cards-register.ts";
+import { registerToolCards, toolOptionsFromSettings, type PiToolOptions, type RegisterToolCardsDeps } from "../tool-cards-register.ts";
 import { defaultMetrics } from "../text-width.ts";
 
 const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
@@ -11,19 +11,26 @@ interface Harness {
   registered: any[];
   images: Array<{ base64: string; filename: string }>;
   reads: string[];
+  created: Array<{ tool: string; cwd: string; options: PiToolOptions }>;
 }
 
 function setup(overrides: Partial<RegisterToolCardsDeps> & { imageLines?: readonly string[] } = {}): Harness {
-  const h: Harness = { registered: [], images: [], reads: [] };
-  const definitions: any = {};
-  for (const name of TOOLS) definitions[name] = { name, label: name, description: name, parameters: {}, execute: async () => name };
+  const h: Harness = { registered: [], images: [], reads: [], created: [] };
   const { imageLines, ...rest } = overrides;
   registerToolCards({ registerTool: (t: any) => h.registered.push(t) } as any, {
     cwd: "/work",
+    homeDir: "/home/u",
     assetsDir: new URL("file:///assets/"),
     env: { TERM_PROGRAM: "other" },
     metrics: defaultMetrics,
-    definitions,
+    settings: () => ({}),
+    createDefinition: (name, cwd, options) => {
+      h.created.push({ tool: name, cwd, options });
+      return {
+        name, label: name, description: `${name} tool`, promptSnippet: `${name} snippet`, parameters: { cwd },
+        execute: async (_id: string, params: any) => ({ cwd, params }),
+      };
+    },
     readFile: (url: URL) => { h.reads.push(url.pathname); return Buffer.from("png"); },
     createImage: (base64, opts) => {
       h.images.push({ base64, filename: opts.filename });
@@ -162,4 +169,28 @@ test("renderers tolerate streaming partial args with missing fields", () => {
       assert.doesNotThrow(() => t.renderResult({ content: [] }, done, theme, ctx(args, { isError: true })).render(80));
     }
   }
+});
+
+test("execute delegates to a definition built for the session cwd, one per cwd", async () => {
+  const h = setup({ settings: () => ({ shellCommandPrefix: "source ~/.env", shellPath: "/bin/zsh", images: { autoResize: false } }) });
+  const bash = tool(h, "bash");
+  assert.equal(bash.description, "bash tool");
+  assert.equal(bash.promptSnippet, "bash snippet");
+  assert.deepEqual(bash.parameters, { cwd: "/work" });
+  h.created.length = 0;
+  assert.deepEqual(await bash.execute("1", { command: "ls" }, undefined, undefined, { cwd: "/a" }), { cwd: "/a", params: { command: "ls" } });
+  assert.deepEqual(await bash.execute("2", { command: "pwd" }, undefined, undefined, { cwd: "/b" }), { cwd: "/b", params: { command: "pwd" } });
+  assert.deepEqual(await bash.execute("3", { command: "ls" }, undefined, undefined, { cwd: "/a" }), { cwd: "/a", params: { command: "ls" } });
+  assert.deepEqual(h.created.map((c) => c.cwd), ["/a", "/b"]);
+  assert.deepEqual(h.created[0].options, {
+    bash: { commandPrefix: "source ~/.env", shellPath: "/bin/zsh" },
+    read: { autoResizeImages: false },
+  });
+});
+
+test("toolOptionsFromSettings mirrors Pi's own tool options", () => {
+  assert.deepEqual(toolOptionsFromSettings({}, "/home/u"), { bash: { commandPrefix: undefined, shellPath: undefined }, read: { autoResizeImages: true } });
+  assert.equal(toolOptionsFromSettings({ shellPath: "~/bin/fish" }, "/home/u").bash.shellPath, "/home/u/bin/fish");
+  assert.equal(toolOptionsFromSettings({ shellPath: "~" }, "/home/u").bash.shellPath, "/home/u");
+  assert.equal(toolOptionsFromSettings({ shellPath: "/bin/bash" }, "/home/u").bash.shellPath, "/bin/bash");
 });

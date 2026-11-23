@@ -4,6 +4,7 @@ import {
   type ExtensionAPI, type ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { Text, Container, Image, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { StringEnum } from "@earendil-works/pi-ai";
@@ -12,7 +13,7 @@ import { BunkerEditor, BunkerHeader, CtfOverlay, createBunkerFooter, createExecu
 import { transformAssistantMarkdown } from "./response.ts";
 import { installCodePanelRenderer } from "./code-panel.ts";
 import { installToolOutputAffordance } from "./tool-output-affordance.ts";
-import { registerToolCards } from "./tool-cards-register.ts";
+import { registerToolCards, type PiToolOptions } from "./tool-cards-register.ts";
 import { initialProviderState, providerStateAfterHttp, providerStateAfterMessage, type ProviderLinkState } from "./provider-state.ts";
 import { installTransmissionMetadataRenderer } from "./transmission-metadata.ts";
 import { calculateRequestTokens, type TransmissionTelemetry } from "./transmission-format.ts";
@@ -230,21 +231,23 @@ export default function yorhaBunkerHud(pi: ExtensionAPI): void {
     return { systemPrompt: buildModeSystemPrompt(event.systemPrompt) };
   });
 
-  const cwd = process.cwd();
+  const toolDefinitionFactories = {
+    bash: (cwd: string, options: PiToolOptions) => createBashToolDefinition(cwd, options.bash),
+    read: (cwd: string, options: PiToolOptions) => createReadToolDefinition(cwd, options.read),
+    edit: (cwd: string) => createEditToolDefinition(cwd),
+    write: (cwd: string) => createWriteToolDefinition(cwd),
+    grep: (cwd: string) => createGrepToolDefinition(cwd),
+    find: (cwd: string) => createFindToolDefinition(cwd),
+    ls: (cwd: string) => createLsToolDefinition(cwd),
+  };
   registerToolCards(pi, {
-    cwd,
+    cwd: process.cwd(),
+    homeDir: homedir(),
     assetsDir: new URL("./assets/generated/", import.meta.url),
     env: process.env,
     metrics: { visibleWidth, truncateToWidth },
-    definitions: {
-      bash: createBashToolDefinition(cwd),
-      read: createReadToolDefinition(cwd),
-      edit: createEditToolDefinition(cwd),
-      write: createWriteToolDefinition(cwd),
-      grep: createGrepToolDefinition(cwd),
-      find: createFindToolDefinition(cwd),
-      ls: createLsToolDefinition(cwd),
-    },
+    createDefinition: (tool, cwd, options) => toolDefinitionFactories[tool](cwd, options),
+    settings: () => pi.getSettings(),
     readFile: (url) => readFileSync(url),
     createImage: (base64, opts) =>
       new Image(base64, "image/png", { fallbackColor: (text) => text },
