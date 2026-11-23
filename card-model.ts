@@ -101,18 +101,27 @@ export function grepCard(args: { pattern: string }, text: string, o: CardOpts): 
   };
 }
 
+// Pi's find and ls append "\n\n[<N> results|entries limit reached...]" or "[<size> limit reached]".
+const LIMIT_NOTICE = /\n\n(\[[^\n]*limit reached[^\n]*\])\s*$/;
+const splitNotice = (text: string): { listing: string; notice: string[] } => {
+  const match = LIMIT_NOTICE.exec(text);
+  return match ? { listing: text.slice(0, match.index), notice: [match[1]] } : { listing: text, notice: [] };
+};
+
 export function findCard(args: { pattern: string }, text: string, o: CardOpts): CardModel {
-  const l = lines(text).filter((x) => x && !/^No files found/i.test(x));
+  const { listing, notice } = splitNotice(text);
+  const l = lines(listing).filter((x) => x && !/^No files found/i.test(x));
   return {
     tool: "find", arg: args.pattern, status: status(o), summary: plural(l.length, "result"),
-    duration: formatDuration(o.durationMs), autoExpand: false, kind: "text", body: l,
+    duration: formatDuration(o.durationMs), autoExpand: false, kind: "text", body: [...l, ...notice],
   };
 }
 
 export function lsCard(args: { path?: string }, text: string, o: CardOpts): CardModel {
-  const l = lines(text);
+  const { listing, notice } = splitNotice(text);
+  const l = lines(listing);
   return {
     tool: "ls", arg: args.path ?? ".", status: status(o), summary: plural(l.length, "entry", "entries"),
-    duration: formatDuration(o.durationMs), autoExpand: false, kind: "text", body: l,
+    duration: formatDuration(o.durationMs), autoExpand: false, kind: "text", body: [...l, ...notice],
   };
 }

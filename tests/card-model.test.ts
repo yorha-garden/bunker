@@ -97,3 +97,13 @@ test("grep overflow line uses singular and plural", () => {
   assert.equal(grepCard({ pattern: "x" }, out(9), ok).body.at(-1), "… 1 more match");
   assert.equal(grepCard({ pattern: "x" }, out(10), ok).body.at(-1), "… 2 more matches");
 });
+
+test("find and ls do not count Pi's trailing limit notice", () => {
+  const find = findCard({ pattern: "*.ts" }, "a.ts\nb.ts\n\n[1000 results limit reached. 50.0KB limit reached]", ok);
+  assert.equal(find.summary, "2 results");
+  assert.deepEqual(find.body, ["a.ts", "b.ts", "[1000 results limit reached. 50.0KB limit reached]"]);
+  const ls = lsCard({ path: "." }, "a\nb/\n\n[500 entries limit reached. Use limit=1000 for more]", ok);
+  assert.equal(ls.summary, "2 entries");
+  assert.deepEqual(ls.body, ["a", "b/", "[500 entries limit reached. Use limit=1000 for more]"]);
+  assert.equal(lsCard({ path: "." }, "a\n\n[50.0KB limit reached]", ok).summary, "1 entry");
+});
