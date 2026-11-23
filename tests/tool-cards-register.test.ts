@@ -267,3 +267,13 @@ test("read of an image result shows an image summary", () => {
   const bare = tool(h, "read").renderResult({ content: [{ type: "image", data: "AAAA", mimeType: "image/jpeg" }] }, done, theme, ctx({ path: "a.jpg" })).render(100);
   assert.match(bare[0], /READ\s+a\.jpg · 1\.2s · image · image\/jpeg$/);
 });
+
+test("user expansion reaches the card model (grep shows all matches)", () => {
+  const h = setup();
+  const out = Array.from({ length: 12 }, (_, i) => `f.ts:${i + 1}:x`).join("\n");
+  const grep = tool(h, "grep");
+  const collapsed = grep.renderResult(text(out), done, theme, ctx({ pattern: "x" })).render(100);
+  assert.equal(collapsed.at(-1), "  … 4 more matches");
+  const expanded = grep.renderResult(text(out), { expanded: true, isPartial: false }, theme, ctx({ pattern: "x" })).render(100);
+  assert.equal(expanded.length, 1 + 1 + 12);
+});

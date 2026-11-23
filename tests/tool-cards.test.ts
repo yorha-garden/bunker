@@ -37,10 +37,21 @@ test("every line fits the width, with narrow degradation", () => {
   assert.equal(narrow.includes("2.1s"), false);
 });
 
-test("long bodies show hidden-lines notice", () => {
+test("long auto-expanded bodies keep first 20 and last 10 with a Ctrl+O notice", () => {
   const body = Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n");
-  const lines = renderCardLines(bashCard({ command: "x" }, body, ok), 100, theme, { expanded: true });
-  assert.equal(lines.some((l) => l.includes("30 lines hidden")), true);
+  const lines = renderCardLines(bashCard({ command: "x" }, body, { ...ok, isError: true }), 100, theme, { expanded: false });
+  assert.equal(lines.length, 1 + 20 + 1 + 10);
+  assert.equal(lines[21], "  30 lines hidden · Ctrl+O");
+  assert.equal(lines.includes("  line 30"), false);
+});
+
+test("user-expanded long bodies show every line without a hidden notice", () => {
+  const body = Array.from({ length: 60 }, (_, i) => `line ${i}`).join("\n");
+  for (const opts of [ok, { ...ok, isError: true }]) {
+    const lines = renderCardLines(bashCard({ command: "x" }, body, opts), 100, theme, { expanded: true });
+    assert.equal(lines.length, 61);
+    assert.equal(lines.some((l) => l.includes("hidden")), false);
+  }
 });
 
 test("edit renders diff with colors requested for + and -", () => {

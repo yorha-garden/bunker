@@ -1,7 +1,7 @@
 import { detectOutput, parseExitCode, summarizeTests, type OutputKind } from "./output-detect.ts";
 
 export type CardStatus = "running" | "ok" | "fail";
-export interface CardOpts { isError: boolean; isPartial: boolean; durationMs?: number }
+export interface CardOpts { isError: boolean; isPartial: boolean; durationMs?: number; expanded?: boolean }
 export interface CardModel {
   tool: "bash" | "read" | "edit" | "write" | "grep" | "find" | "ls";
   arg: string;
@@ -86,12 +86,13 @@ export function grepCard(args: { pattern: string }, text: string, o: CardOpts): 
     const file = m.slice(0, m.indexOf(":"));
     (files.get(file) ?? files.set(file, []).get(file)!).push(m.slice(file.length + 1));
   }
+  const cap = o.expanded ? Infinity : 8;
   const body: string[] = [];
   let shown = 0;
   for (const [file, ms] of files) {
-    if (shown >= 8) break;
+    if (shown >= cap) break;
     body.push(file);
-    for (const m of ms) { if (shown >= 8) break; body.push(`  ${m}`); shown++; }
+    for (const m of ms) { if (shown >= cap) break; body.push(`  ${m}`); shown++; }
   }
   if (matches.length > shown) body.push(`… ${plural(matches.length - shown, "more match", "more matches")}`);
   const summary = matches.length === 0 ? "0 matches" : `${plural(matches.length, "match", "matches")} in ${plural(files.size, "file")}`;

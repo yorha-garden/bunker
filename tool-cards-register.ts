@@ -150,7 +150,7 @@ export function registerToolCards(pi: { registerTool(tool: any): void }, deps: R
       },
       renderResult(result: any, options: { expanded: boolean; isPartial: boolean }, theme: CardTheme, context: any): RenderComponent {
         if (options.isPartial) return EMPTY;
-        const opts = { isError: Boolean(context?.isError), isPartial: false, durationMs: context?.durationMs };
+        const opts = { isError: Boolean(context?.isError), isPartial: false, durationMs: context?.durationMs, expanded: options.expanded };
         const model = build(context?.args ?? {}, textOf(result), result, opts);
         return cardComponent(tool, model, theme, options.expanded, context?.outputPad ?? 1);
       },

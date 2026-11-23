@@ -61,7 +61,8 @@ export function renderCardLines(
   if (model.kind === "json") {
     try { body = JSON.stringify(JSON.parse(model.body.join("\n")), null, 2).split("\n"); } catch { /* keep raw */ }
   }
-  const cut = truncateMiddle(body, 20, 10);
+  // Ctrl+O shows everything; only auto-expanded cards keep first 20 / last 10 and point at Ctrl+O.
+  const cut = opts.expanded ? { lines: body, hidden: 0 } : truncateMiddle(body, 20, 10);
   const out = [head, ...cut.lines.map((l) => fit(`  ${colorBody(model, l, theme)}`))];
   if (cut.hidden > 0) out.splice(1 + 20, 0, fit(theme.fg("muted", `  ${cut.hidden} lines hidden · Ctrl+O`)));
   return out;

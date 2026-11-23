@@ -112,3 +112,11 @@ test("read of an image summarizes as an image", () => {
   const c = readCard({ path: "shot.png" }, "Read image file [image/png]", ok, "image/png");
   assert.equal(c.summary, "image · image/png");
 });
+
+test("grep shows every match grouped by file when user-expanded", () => {
+  const out = Array.from({ length: 12 }, (_, i) => `f${i % 3}.ts:${i + 1}:render`).join("\n");
+  const c = grepCard({ pattern: "render" }, out, { ...ok, expanded: true });
+  assert.equal(c.body.length, 12 + 3);
+  assert.equal(c.body.some((l) => l.includes("more match")), false);
+  assert.deepEqual(c.body.slice(0, 2), ["f0.ts", "  1:render"]);
+});
