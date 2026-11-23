@@ -16,7 +16,7 @@ class TransmissionTelemetryLine {
     this.padding = padding;
   }
 
-  render(width: number): string[] {
+  render(width: number): readonly string[] {
     const available = Math.max(1, width - this.padding * 2);
     const text = formatTransmissionTelemetry(this.telemetry, available);
     return new Text(this.theme.fg("dim", text), this.padding, 0).render(width);
