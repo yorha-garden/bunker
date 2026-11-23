@@ -116,7 +116,7 @@ Pixelarticons SVG sources are distributed under the MIT license in `assets/pixel
 | `response.ts`, `transmission-*.ts` | Response framing and per-request telemetry |
 | `code-panel.ts`, `tool-output-affordance.ts` | Markdown and tool-output rendering |
 | `tool-cards.ts`, `tool-cards-register.ts`, `card-model.ts` | Tool card layout, per-tool summaries, and dependency-injected registration |
-| `icons.ts`, `output-detect.ts`, `text-width.ts` | Icon registry and `YORHA_ICONS` mode, output detector, width helpers |
+| `icons.ts`, `output-detect.ts`, `text-width.ts`, `sanitize.ts` | Icon registry and `YORHA_ICONS` mode, output detector, width helpers, tool output sanitizer |
 | `theme/`, `assets/` | Pi theme and generated/source visual assets |
 | `skills/yorha-build-orchestration/` | Build workflow skill installed with the extension |
 | `install.sh`, `repair-startup.sh` | Installation, backup, repair, and restore setup |

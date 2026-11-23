@@ -194,3 +194,19 @@ test("toolOptionsFromSettings mirrors Pi's own tool options", () => {
   assert.equal(toolOptionsFromSettings({ shellPath: "~" }, "/home/u").bash.shellPath, "/home/u");
   assert.equal(toolOptionsFromSettings({ shellPath: "/bin/bash" }, "/home/u").bash.shellPath, "/bin/bash");
 });
+
+test("tool output and header args are sanitized before rendering", () => {
+  const h = setup();
+  const bash = tool(h, "bash");
+  const result = bash.renderResult(text("\x1b[1Afoo\r\nbar\tbaz\n\nCommand exited with code 1"), done, theme, ctx({ command: "echo\t\x1b[31mhi" }, { isError: true })).render(100);
+  const running = bash.renderCall({ command: "a\tb\r" }, theme, ctx({ command: "a\tb\r" }, { isPartial: true })).render(100);
+  const edit = tool(h, "edit").renderResult({ content: [{ type: "text", text: "ok" }], details: { diff: "-1 a\tb\r\n+1 \x1b[32mc" } }, done, theme, ctx({ path: "a\x1b]8;;x\x07.ts" })).render(100);
+  const write = tool(h, "write").renderResult(text("ok"), done, theme, ctx({ path: "w.txt", content: "x\ty\r\n\x1b[2Jz" })).render(100);
+  const grep = tool(h, "grep").renderResult(text("a.ts:1:\tfoo"), done, theme, ctx({ pattern: "\x1b[1Cfoo" })).render(100);
+  for (const line of [...result, ...running, ...edit, ...write, ...grep]) {
+    assert.equal(/[\x1b\r\t]/.test(line), false, JSON.stringify(line));
+  }
+  assert.equal(result.some((l) => l.includes("foo")), true);
+  assert.equal(result.some((l) => l.includes("bar   baz")), true);
+  assert.match(result[0], /BASH\s+echo   hi/);
+});

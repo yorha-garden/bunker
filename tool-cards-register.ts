@@ -1,5 +1,6 @@
 import * as card from "./card-model.ts";
 import { iconFile, resolveIconMode, type ToolName } from "./icons.ts";
+import { sanitizeText } from "./sanitize.ts";
 import { renderCardLines, type CardTheme } from "./tool-cards.ts";
 import type { TextMetrics } from "./text-width.ts";
 
@@ -48,9 +49,9 @@ const ITERM2_PREFIX = "\x1b]1337;File=";
 const EMPTY: RenderComponent = { invalidate() {}, render: () => [] };
 
 const textOf = (result: { content?: Array<{ type: string; text?: string }> } | undefined): string =>
-  (result?.content ?? []).map((c) => (c.type === "text" ? c.text ?? "" : "")).join("\n");
+  sanitizeText((result?.content ?? []).map((c) => (c.type === "text" ? c.text ?? "" : "")).join("\n"));
 
-const str = (value: unknown): string => (typeof value === "string" ? value : "");
+const str = (value: unknown): string => (typeof value === "string" ? sanitizeText(value) : "");
 const num = (value: unknown): number | undefined => (typeof value === "number" ? value : undefined);
 
 type Build = (args: any, text: string, result: any, opts: card.CardOpts) => card.CardModel;
@@ -58,7 +59,7 @@ type Build = (args: any, text: string, result: any, opts: card.CardOpts) => card
 const BUILDERS: Record<ToolName, Build> = {
   bash: (a, t, _r, o) => card.bashCard({ command: str(a.command) }, t, o),
   read: (a, t, _r, o) => card.readCard({ path: str(a.path), offset: num(a.offset), limit: num(a.limit) }, t, o),
-  edit: (a, t, r, o) => card.editCard({ path: str(a.path) }, typeof r?.details?.diff === "string" ? r.details.diff : undefined, t, o),
+  edit: (a, t, r, o) => card.editCard({ path: str(a.path) }, typeof r?.details?.diff === "string" ? sanitizeText(r.details.diff) : undefined, t, o),
   write: (a, t, _r, o) => card.writeCard({ path: str(a.path), content: str(a.content) }, t, o),
   grep: (a, t, _r, o) => card.grepCard({ pattern: str(a.pattern) }, t, o),
   find: (a, t, _r, o) => card.findCard({ pattern: str(a.pattern) }, t, o),
