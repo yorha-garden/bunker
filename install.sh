@@ -9,7 +9,7 @@ SETTINGS="$AGENT_DIR/settings.json"
 KEYBINDINGS="$AGENT_DIR/keybindings.json"
 DRY_RUN=0
 [[ ${1:-} == "--dry-run" ]] && DRY_RUN=1
-SUBAGENTS_PACKAGE='npm:pi-subagents@0.46.0'
+SUBAGENTS_PACKAGE='npm:pi-subagents@0.76.1'
 SUPERPOWERS_PACKAGE='git:github.com/obra/superpowers@v6.2.0'
 
 if (( DRY_RUN )); then

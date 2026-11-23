@@ -17,7 +17,7 @@ RESTORE=$(printf '%s\n' "$OUT1" | awk '/^Restore:/ {print $2}')
 [[ $(jq -r .theme "$HOME/.pi/agent/settings.json") == yorha-bunker ]]
 [[ $(jq -r .quietStartup "$HOME/.pi/agent/settings.json") == true ]]
 [[ $(jq -r .tuiMode "$HOME/.pi/agent/settings.json") == fullscreen ]]
-[[ $(jq -r '.packages[] | select(type == "string" and startswith("npm:pi-subagents"))' "$HOME/.pi/agent/settings.json") == npm:pi-subagents@0.46.0 ]]
+[[ $(jq -r '.packages[] | select(type == "string" and startswith("npm:pi-subagents"))' "$HOME/.pi/agent/settings.json") == npm:pi-subagents@0.76.1 ]]
 [[ $(jq -r '.packages[] | select(type == "object" and (.source | contains("github.com/obra/superpowers"))) | .extensions | length' "$HOME/.pi/agent/settings.json") == 0 ]]
 [[ -f "$HOME/.pi/agent/extensions/yorha-bunker-hud/build-orchestration.ts" ]]
 for f in tool-cards.ts tool-cards-register.ts card-model.ts icons.ts output-detect.ts text-width.ts sanitize.ts assets/generated/tool-bash.png assets/generated/tool-ls.png; do
